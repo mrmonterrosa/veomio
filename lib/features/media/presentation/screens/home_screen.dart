@@ -217,7 +217,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           letterSpacing: 2,
                         ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 4), // Reduced from 16 to 4 to fix "muy arriba"
                   Text(
                     media.title,
                     style: Theme.of(context).textTheme.displayLarge?.copyWith(
@@ -311,9 +311,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildContinueWatchingRail() {
     return SizedBox(
-      height: 180,
+      height: 210, // Increased height to allow for vertical padding and scaling
       child: ListView.builder(
-        padding: const EdgeInsets.only(left: 58.0),
+        padding: const EdgeInsets.only(left: 58.0, top: 16.0, bottom: 16.0), // Added vertical padding
+        clipBehavior: Clip.none, // Prevent clipping the scaled border
         scrollDirection: Axis.horizontal,
         itemCount: _continueWatching.length,
         itemBuilder: (context, index) {
@@ -407,9 +408,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildMovieRail(List<MediaItem> movies) {
     return SizedBox(
-      height: 300,
+      height: 330, // Increased height
       child: ListView.builder(
-        padding: const EdgeInsets.only(left: 58.0),
+        padding: const EdgeInsets.only(left: 58.0, top: 16.0, bottom: 16.0), // Added vertical padding
+        clipBehavior: Clip.none, // Prevent clipping
         scrollDirection: Axis.horizontal,
         itemCount: movies.length,
         itemBuilder: (context, index) {
