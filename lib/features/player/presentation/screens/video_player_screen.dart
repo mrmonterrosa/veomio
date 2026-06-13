@@ -1,21 +1,26 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:video_player/video_player.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/storage/local_storage.dart';
+import '../../../../core/presentation/widgets/tv_focus_button.dart';
 
 class VideoPlayerScreen extends StatefulWidget {
   final String streamUrl;
   final String title;
   final String? subtitle;
+  final bool isLive;
 
   const VideoPlayerScreen({
     super.key,
     required this.streamUrl,
     required this.title,
     this.subtitle,
+    this.isLive = false,
   });
 
   @override
@@ -23,71 +28,226 @@ class VideoPlayerScreen extends StatefulWidget {
 }
 
 class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
-  late final Player _player;
-  late final VideoController _controller;
+  VideoPlayerController? _nativeController;
+  Player? _mkPlayer;
+  VideoController? _mkController;
+  
+  String _playerType = 'native';
+  LocalStorage? _localStorage;
+  
+  final FocusNode _rootFocusNode = FocusNode();
+  final FocusNode _swapPlayerFocusNode = FocusNode();
+  final FocusNode _errorFocusNode = FocusNode();
   
   bool _showControls = true;
   Timer? _hideTimer;
-  
-  double _volume = 1.0;
-  bool _isMuted = false;
 
   // Player state trackers
   Duration _position = Duration.zero;
   Duration _duration = Duration.zero;
   bool _isPlaying = true;
-  bool _isBuffering = false;
+  bool _isBuffering = true; // start as true until initialized
   String? _errorMessage;
 
-  // Listeners subscriptions
-  late final List<StreamSubscription> _subscriptions;
+  StreamSubscription? _mkPlayingSub;
+  StreamSubscription? _mkPositionSub;
+  StreamSubscription? _mkDurationSub;
+  StreamSubscription? _mkBufferingSub;
+  StreamSubscription? _mkErrorSub;
+
+  bool get _isMediaKit => _playerType == 'mediakit';
+  bool get _isInitialized => _isMediaKit 
+      ? (_mkController != null) 
+      : (_nativeController?.value.isInitialized ?? false);
 
   @override
   void initState() {
     super.initState();
-    // Prevent screen dimming and lock orientation
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.landscapeLeft,
       DeviceOrientation.landscapeRight,
     ]);
 
-    _player = Player();
-    _controller = VideoController(_player);
+    _initPlayerAsync();
+  }
 
-    // Set up state streams
-    _subscriptions = [
-      _player.stream.position.listen((p) {
-        setState(() => _position = p);
-      }),
-      _player.stream.duration.listen((d) {
-        setState(() => _duration = d);
-      }),
-      _player.stream.playing.listen((playing) {
-        setState(() => _isPlaying = playing);
-      }),
-      _player.stream.buffering.listen((buffering) {
-        setState(() => _isBuffering = buffering);
-      }),
-      _player.stream.error.listen((error) {
-        setState(() => _errorMessage = error.toString());
-      }),
-    ];
+  Future<void> _initPlayerAsync() async {
+    try {
+      _localStorage = await LocalStorage.init();
+      if (!mounted) return;
+      
+      setState(() {
+        _playerType = _localStorage!.getPlayerType();
+      });
 
-    // Play media
-    _player.open(Media(widget.streamUrl));
+      if (_isMediaKit) {
+        _initMediaKit();
+      } else {
+        _initNativePlayer();
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = 'Error al inicializar el reproductor: $e';
+        _isBuffering = false;
+      });
+    }
+
     _startHideTimer();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _swapPlayerFocusNode.requestFocus();
+    });
+  }
+  
+  void _initMediaKit() {
+    _mkPlayer = Player(configuration: const PlayerConfiguration(
+      bufferSize: 32 * 1024 * 1024,
+    ));
+    _mkController = VideoController(_mkPlayer!);
+    
+    _mkPlayingSub = _mkPlayer!.stream.playing.listen((isPlaying) {
+      if (mounted) setState(() => _isPlaying = isPlaying);
+    });
+    _mkPositionSub = _mkPlayer!.stream.position.listen((position) {
+      if (mounted) setState(() => _position = position);
+    });
+    _mkDurationSub = _mkPlayer!.stream.duration.listen((duration) {
+      if (mounted) setState(() => _duration = duration);
+    });
+    _mkBufferingSub = _mkPlayer!.stream.buffering.listen((isBuffering) {
+      if (mounted) setState(() => _isBuffering = isBuffering);
+    });
+    _mkErrorSub = _mkPlayer!.stream.error.listen((error) {
+      if (mounted && error != 'no error') {
+        setState(() {
+          _errorMessage = error;
+          _isBuffering = false;
+          _showControls = false; // ocultar controles para no estorbar
+        });
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _errorFocusNode.requestFocus();
+        });
+      }
+    });
+
+    _mkPlayer!.open(Media(widget.streamUrl), play: true).then((_) {
+      if (mounted) setState(() => _isBuffering = false);
+    }).catchError((e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = e.toString();
+          _isBuffering = false;
+          _showControls = false;
+        });
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _errorFocusNode.requestFocus();
+        });
+      }
+    });
+  }
+
+  void _initNativePlayer() {
+    _nativeController = VideoPlayerController.networkUrl(
+      Uri.parse(widget.streamUrl),
+    )..initialize().then((_) {
+        if (!mounted) return;
+        setState(() {
+          _isBuffering = false;
+        });
+        _nativeController!.play();
+      }).catchError((error) {
+        if (!mounted) return;
+        setState(() {
+          _errorMessage = error.toString();
+          _isBuffering = false;
+          _showControls = false;
+        });
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _errorFocusNode.requestFocus();
+        });
+      });
+    _nativeController!.addListener(_onNativePlayerStateChanged);
+  }
+
+  Future<void> _togglePlayerTypeOnTheFly() async {
+    _onUserInteraction();
+    
+    final newType = _isMediaKit ? 'native' : 'mediakit';
+    
+    setState(() {
+      _isBuffering = true;
+      _errorMessage = null;
+      _playerType = newType;
+    });
+
+    _nativeController?.removeListener(_onNativePlayerStateChanged);
+    
+    _mkPlayingSub?.cancel();
+    _mkPositionSub?.cancel();
+    _mkDurationSub?.cancel();
+    _mkBufferingSub?.cancel();
+    _mkErrorSub?.cancel();
+    
+    await _mkPlayer?.dispose();
+    await _nativeController?.dispose();
+    
+    _mkPlayer = null;
+    _mkController = null;
+    _nativeController = null;
+
+    if (_localStorage != null) {
+      await _localStorage!.setPlayerType(newType);
+    }
+
+    if (_isMediaKit) {
+      _initMediaKit();
+    } else {
+      _initNativePlayer();
+    }
+  }
+
+  void _onNativePlayerStateChanged() {
+    if (!mounted || _nativeController == null) return;
+    
+    final wasAlreadyInitialized = _isInitialized;
+
+    setState(() {
+      _position = _nativeController!.value.position;
+      _duration = _nativeController!.value.duration;
+      _isPlaying = _nativeController!.value.isPlaying;
+      _isBuffering = _nativeController!.value.isBuffering;
+      if (_nativeController!.value.hasError) {
+        _errorMessage = _nativeController!.value.errorDescription;
+      }
+    });
+
+    if (!wasAlreadyInitialized && _nativeController!.value.isInitialized) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_showControls && mounted) {
+          _swapPlayerFocusNode.requestFocus();
+        }
+      });
+    }
   }
 
   @override
   void dispose() {
     _hideTimer?.cancel();
-    for (var s in _subscriptions) {
-      s.cancel();
-    }
-    _player.dispose();
+    _rootFocusNode.dispose();
+    _swapPlayerFocusNode.dispose();
+    _errorFocusNode.dispose();
+
+    _mkPlayingSub?.cancel();
+    _mkPositionSub?.cancel();
+    _mkDurationSub?.cancel();
+    _mkBufferingSub?.cancel();
+    _mkErrorSub?.cancel();
+
+    _mkPlayer?.dispose();
+    _nativeController?.removeListener(_onNativePlayerStateChanged);
+    _nativeController?.dispose();
     
-    // Restore UI overlays and orientation
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
@@ -100,9 +260,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   void _startHideTimer() {
     _hideTimer?.cancel();
+    if (_errorMessage != null) return; // No auto-hide si hay error
     _hideTimer = Timer(const Duration(seconds: 4), () {
-      if (mounted) {
+      if (mounted && _errorMessage == null) {
         setState(() => _showControls = false);
+        _rootFocusNode.requestFocus();
       }
     });
   }
@@ -112,117 +274,98 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       _showControls = !_showControls;
     });
     if (_showControls) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _swapPlayerFocusNode.requestFocus();
+      });
       _startHideTimer();
     } else {
+      _rootFocusNode.requestFocus();
       _hideTimer?.cancel();
     }
   }
 
   void _onUserInteraction() {
+    if (_errorMessage != null) return; // No manejar interacción de controles si hay popup
     if (!_showControls) {
       setState(() => _showControls = true);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _swapPlayerFocusNode.requestFocus();
+      });
     }
     _startHideTimer();
   }
 
-  Future<void> _seekForward() async {
-    _onUserInteraction();
-    final target = _position + const Duration(seconds: 10);
-    await _player.seek(target < _duration ? target : _duration);
-  }
-
-  Future<void> _seekBackward() async {
-    _onUserInteraction();
-    final target = _position - const Duration(seconds: 10);
-    await _player.seek(target > Duration.zero ? target : Duration.zero);
-  }
-
-  Future<void> _togglePlayPause() async {
-    _onUserInteraction();
-    await _player.playOrPause();
-  }
-
-  Future<void> _toggleMute() async {
-    _onUserInteraction();
-    setState(() {
-      _isMuted = !_isMuted;
-      _player.setVolume(_isMuted ? 0.0 : _volume * 100);
-    });
-  }
-
-  // Handle D-pad and TV Remote shortcuts
   KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
     if (event is KeyDownEvent) {
-      if (event.logicalKey == LogicalKeyboardKey.select ||
-          event.logicalKey == LogicalKeyboardKey.enter ||
-          event.logicalKey == LogicalKeyboardKey.space) {
-        _togglePlayPause();
-        return KeyEventResult.handled;
+      if (_errorMessage != null) {
+        return KeyEventResult.ignored; // Dejar que el Row maneje el foco
       }
-      if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
-        _seekBackward();
-        return KeyEventResult.handled;
-      }
-      if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
-        _seekForward();
-        return KeyEventResult.handled;
-      }
-      if (event.logicalKey == LogicalKeyboardKey.arrowUp ||
-          event.logicalKey == LogicalKeyboardKey.arrowDown) {
+      if (!_showControls) {
         _onUserInteraction();
         return KeyEventResult.handled;
+      } else {
+        _startHideTimer();
+        return KeyEventResult.ignored;
       }
     }
     return KeyEventResult.ignored;
-  }
-
-  String _formatDuration(Duration d) {
-    final hours = d.inHours;
-    final minutes = d.inMinutes.remainder(60).toString().padLeft(2, '0');
-    final seconds = d.inSeconds.remainder(60).toString().padLeft(2, '0');
-    if (hours > 0) {
-      return '$hours:$minutes:$seconds';
-    }
-    return '$minutes:$seconds';
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      body: Focus(
-        autofocus: true,
-        onKeyEvent: _handleKeyEvent,
-        child: GestureDetector(
+      body: PopScope(
+        canPop: _errorMessage == null,
+        onPopInvokedWithResult: (didPop, result) {
+          if (didPop) return;
+          if (_errorMessage != null) {
+            setState(() {
+              _errorMessage = null;
+            });
+            _rootFocusNode.requestFocus();
+          }
+        },
+        child: Focus(
+          focusNode: _rootFocusNode,
+          autofocus: true,
+          onKeyEvent: _handleKeyEvent,
+          child: GestureDetector(
           onTap: _toggleControls,
           behavior: HitTestBehavior.opaque,
           child: Stack(
             children: [
-              // 1. Native Video Player Render
-              Center(
-                child: Video(
-                  controller: _controller,
-                  controls: null, // Custom overlay
-                ),
-              ),
-
-              // 2. Loading / Buffering Indicator
-              if (_isBuffering && _errorMessage == null)
+              if (!_isMediaKit && _nativeController != null && _nativeController!.value.isInitialized)
                 Center(
-                  child: Container(
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      color: Colors.black54,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: const CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primary),
-                      strokeWidth: 4,
-                    ),
+                  child: AspectRatio(
+                    aspectRatio: 16 / 9,
+                    child: VideoPlayer(_nativeController!),
+                  ),
+                ),
+              if (_isMediaKit && _mkController != null)
+                Center(
+                  child: AspectRatio(
+                    aspectRatio: 16 / 9,
+                    child: Video(controller: _mkController!),
                   ),
                 ),
 
-              // 3. Error Overlay
+              if (_isBuffering || !_isInitialized)
+                if (_errorMessage == null)
+                  Center(
+                    child: Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: const CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primary),
+                        strokeWidth: 4,
+                      ),
+                    ),
+                  ),
+
               if (_errorMessage != null)
                 Center(
                   child: Container(
@@ -239,31 +382,55 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                         const Icon(Icons.error_outline, color: Colors.redAccent, size: 48),
                         const SizedBox(height: 16),
                         const Text(
-                          'Error de reproducción',
+                          'Aviso del Reproductor',
                           style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(height: 8),
-                        Text(
-                          _errorMessage!,
+                        const Text(
+                          'La señal presenta inestabilidad o el formato no es soportado de forma nativa por este motor. Si el video sigue reproduciéndose, puedes ignorar este aviso.',
                           textAlign: TextAlign.center,
-                          style: const TextStyle(color: AppTheme.onSurfaceVariant, fontSize: 14),
+                          style: TextStyle(color: AppTheme.onSurfaceVariant, fontSize: 14),
                         ),
                         const SizedBox(height: 24),
-                        ElevatedButton(
-                          onPressed: () => Navigator.pop(context),
-                          child: const Text('Volver'),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            TvFocusButton(
+                              focusNode: _errorFocusNode,
+                              isPrimary: true,
+                              onTap: () {
+                                setState(() {
+                                  _errorMessage = null;
+                                });
+                                _rootFocusNode.requestFocus();
+                              },
+                              child: const Text('Ignorar', style: TextStyle(color: Colors.black)),
+                            ),
+                            const SizedBox(width: 16),
+                            TvFocusButton(
+                              onTap: _togglePlayerTypeOnTheFly,
+                              child: const Text(
+                                'Cambiar Motor',
+                                style: TextStyle(color: Colors.white),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            TvFocusButton(
+                              onTap: () => Navigator.pop(context),
+                              child: const Text('Salir', style: TextStyle(color: Colors.white)),
+                            ),
+                          ],
                         )
                       ],
                     ),
                   ),
                 ),
 
-              // 4. Custom Video Controls HUD
               AnimatedOpacity(
                 opacity: _showControls && _errorMessage == null ? 1.0 : 0.0,
                 duration: const Duration(milliseconds: 300),
                 child: IgnorePointer(
-                  ignoring: !_showControls,
+                  ignoring: !_showControls || _errorMessage != null,
                   child: _buildControlsOverlay(),
                 ),
               ),
@@ -271,303 +438,68 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
           ),
         ),
       ),
+      ),
     );
   }
 
   Widget _buildControlsOverlay() {
     return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Colors.black87,
-            Colors.transparent,
-            Colors.transparent,
-            Colors.black.withValues(alpha: 0.9),
-          ],
-        ),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+      padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 32),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        mainAxisAlignment: MainAxisAlignment.end,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Top Bar
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                widget.title,
+                style: GoogleFonts.beVietnamPro(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                  letterSpacing: -0.5,
+                ),
+              ),
+              if (widget.subtitle != null)
+                Text(
+                  widget.subtitle!,
+                  style: GoogleFonts.beVietnamPro(
+                    fontSize: 18,
+                    color: AppTheme.onSurfaceVariant,
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 24),
           Row(
             children: [
-              IconButton(
-                icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 24),
-                onPressed: () => Navigator.pop(context),
+              TvFocusButton(
+                focusNode: _swapPlayerFocusNode,
+                onTap: _togglePlayerTypeOnTheFly,
+                isPrimary: true,
+                child: const Icon(Icons.swap_horiz, size: 28, color: AppTheme.onPrimary),
               ),
               const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.title,
-                      style: GoogleFonts.sora(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    if (widget.subtitle != null)
-                      Text(
-                        widget.subtitle!,
-                        style: GoogleFonts.inter(
-                          fontSize: 14,
-                          color: AppTheme.onSurfaceVariant,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                  ],
-                ),
-              ),
-              // Stream Information tag
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 decoration: BoxDecoration(
-                  color: Colors.white10,
+                  color: Colors.white.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.white12),
                 ),
                 child: Text(
-                  widget.streamUrl.contains('.m3u8') ? 'HLS LIVE' : 'MPV DIRECT',
-                  style: GoogleFonts.jetBrainsMono(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.secondary,
-                  ),
-                ),
-              ),
-            ],
-          ),
-
-          // Center Player Control Buttons
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.replay_10, color: Colors.white, size: 36),
-                onPressed: _seekBackward,
-              ),
-              const SizedBox(width: 32),
-              GestureDetector(
-                onTap: _togglePlayPause,
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primary.withValues(alpha: 0.9),
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppTheme.primary.withValues(alpha: 0.5),
-                        blurRadius: 15,
-                        spreadRadius: 2,
-                      )
-                    ],
-                  ),
-                  child: Icon(
-                    _isPlaying ? Icons.pause : Icons.play_arrow,
+                  'Motor: ${_isMediaKit ? "MediaKit" : "Nativo"}',
+                  style: GoogleFonts.beVietnamPro(
+                    fontSize: 14,
                     color: Colors.white,
-                    size: 40,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ),
-              const SizedBox(width: 32),
-              IconButton(
-                icon: const Icon(Icons.forward_10, color: Colors.white, size: 36),
-                onPressed: _seekForward,
-              ),
-            ],
-          ),
-
-          // Bottom Bar & Timeline
-          Column(
-            children: [
-              // Time bar
-              Row(
-                children: [
-                  Text(
-                    _formatDuration(_position),
-                    style: GoogleFonts.jetBrainsMono(color: Colors.white, fontSize: 14),
-                  ),
-                  Expanded(
-                    child: SliderTheme(
-                      data: SliderTheme.of(context).copyWith(
-                        trackHeight: 4,
-                        activeTrackColor: AppTheme.primary,
-                        inactiveTrackColor: Colors.white24,
-                        thumbColor: AppTheme.primary,
-                        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-                        overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
-                      ),
-                      child: Slider(
-                        value: _position.inMilliseconds.toDouble(),
-                        min: 0.0,
-                        max: _duration.inMilliseconds.toDouble() > 0.0
-                            ? _duration.inMilliseconds.toDouble()
-                            : 1.0,
-                        onChanged: (val) {
-                          _onUserInteraction();
-                          _player.seek(Duration(milliseconds: val.toInt()));
-                        },
-                      ),
-                    ),
-                  ),
-                  Text(
-                    _formatDuration(_duration),
-                    style: GoogleFonts.jetBrainsMono(color: Colors.white, fontSize: 14),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              // Utility row
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      IconButton(
-                        icon: Icon(
-                          _isMuted ? Icons.volume_off : Icons.volume_up,
-                          color: Colors.white,
-                        ),
-                        onPressed: _toggleMute,
-                      ),
-                      SizedBox(
-                        width: 100,
-                        child: Slider(
-                          value: _isMuted ? 0.0 : _volume,
-                          min: 0.0,
-                          max: 1.0,
-                          activeColor: AppTheme.secondary,
-                          onChanged: (val) {
-                            _onUserInteraction();
-                            setState(() {
-                              _volume = val;
-                              _isMuted = _volume == 0.0;
-                              _player.setVolume(_isMuted ? 0.0 : _volume * 100);
-                            });
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                  // Tracks selector (Audio / Subtitles)
-                  Row(
-                    children: [
-                      TextButton.icon(
-                        icon: const Icon(Icons.audiotrack, color: Colors.white, size: 18),
-                        label: const Text('Audio', style: TextStyle(color: Colors.white)),
-                        onPressed: () {
-                          _onUserInteraction();
-                          _showTrackSelector('Audio');
-                        },
-                      ),
-                      const SizedBox(width: 16),
-                      TextButton.icon(
-                        icon: const Icon(Icons.subtitles, color: Colors.white, size: 18),
-                        label: const Text('Subtítulos', style: TextStyle(color: Colors.white)),
-                        onPressed: () {
-                          _onUserInteraction();
-                          _showTrackSelector('Subtítulos');
-                        },
-                      ),
-                    ],
-                  )
-                ],
-              )
             ],
           ),
         ],
       ),
-    );
-  }
-
-  void _showTrackSelector(String title) {
-    // In media_kit, tracks are available inside _player.state.tracks.
-    // For our MVP, we display a premium dialog letting the user know they can select tracks,
-    // listing the standard MPV tracks (which auto-fetches embedded HLS streams!).
-    final tracks = _player.state.tracks;
-    
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: AppTheme.surfaceLow,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: const BorderSide(color: AppTheme.outline),
-          ),
-          title: Text(
-            'Seleccionar $title',
-            style: GoogleFonts.sora(color: Colors.white, fontWeight: FontWeight.bold),
-          ),
-          content: SizedBox(
-            width: 300,
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: title == 'Audio' ? tracks.audio.length : tracks.subtitle.length,
-              itemBuilder: (context, index) {
-                final isAudio = title == 'Audio';
-                final audioTrack = isAudio ? tracks.audio[index] : null;
-                final subtitleTrack = !isAudio ? tracks.subtitle[index] : null;
-
-                final isSelected = isAudio
-                    ? _player.state.track.audio == audioTrack
-                    : _player.state.track.subtitle == subtitleTrack;
-
-                final trackName = isAudio
-                    ? (audioTrack!.title ?? audioTrack.language ?? 'Audio ${index + 1}')
-                    : (subtitleTrack!.title ?? subtitleTrack.language ?? 'Subtítulo ${index + 1}');
-
-                return ListTile(
-                  leading: Icon(
-                    isAudio ? Icons.music_note : Icons.subtitles,
-                    color: isSelected ? AppTheme.primary : AppTheme.onSurfaceVariant,
-                  ),
-                  title: Text(
-                    trackName,
-                    style: TextStyle(
-                      color: isSelected ? Colors.white : AppTheme.onSurfaceVariant,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                    ),
-                  ),
-                  trailing: isSelected ? const Icon(Icons.check, color: AppTheme.primary) : null,
-                  onTap: () {
-                    if (isAudio) {
-                      _player.setAudioTrack(audioTrack!);
-                    } else {
-                      _player.setSubtitleTrack(subtitleTrack!);
-                    }
-                    Navigator.pop(context);
-                    final logName = isAudio
-                        ? (audioTrack!.title ?? audioTrack.language ?? audioTrack.id)
-                        : (subtitleTrack!.title ?? subtitleTrack.language ?? subtitleTrack.id);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Cambiando a $logName'),
-                        duration: const Duration(seconds: 1),
-                      ),
-                    );
-                  },
-                );
-              },
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cerrar'),
-            ),
-          ],
-        );
-      },
     );
   }
 }

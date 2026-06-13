@@ -2,29 +2,28 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
-  // Brand colors from Stitch Design
-  static const Color primary = Color(0xFFFFB4A8); // Peach/Coral primary
-  static const Color onPrimary = Color(0xFF690000); 
-  static const Color secondary = Color(0xFFAFC6FF);
-  static const Color onSecondary = Color(0xFF002D6C);
+  static const Color primary = Color(0xFFFFD54F); // Amber/Yellow primary
+  static const Color onPrimary = Color(0xFF3E2723); 
+  static const Color secondary = Color(0xFFBCAAA4);
+  static const Color onSecondary = Color(0xFF3E2723);
   
-  static const Color background = Color(0xFF121212); // surface-main
-  static const Color surface = Color(0xFF001621); // surface / background
-  static const Color surfaceContainer = Color(0xFF1E1E1E); 
-  static const Color surfaceContainerLow = Color(0xFF001E2C);
-  static const Color surfaceContainerHigh = Color(0xFF042E3F);
-  static const Color surfaceContainerHighest = Color(0xFF13384B);
+  static const Color background = Color(0xFF110E0C); // Very dark warm brown/black
+  static const Color surface = Color(0xFF1A1614); // Drawer background
+  static const Color surfaceContainer = Color(0xFF221D1A); 
+  static const Color surfaceContainerLow = Color(0xFF1A1614);
+  static const Color surfaceContainerHigh = Color(0xFF2D2622);
+  static const Color surfaceContainerHighest = Color(0xFF38302A);
   
   // Backwards compatibility aliases
   static const Color surfaceLow = surfaceContainerLow;
   static const Color surfaceVariant = surfaceContainerHighest;
-  static const Color surfaceDim = Color(0xFF001621);
+  static const Color surfaceDim = Color(0xFF1A1614);
   static const Color surfaceHigh = surfaceContainerHigh;
 
   static const Color onSurface = Color(0xFFF8F9FA); 
   static const Color onSurfaceVariant = Color(0xFFC4C7C5);
-  static const Color outline = Color(0xFFAB8983);
-  static const Color outlineVariant = Color(0xFF5C403C);
+  static const Color outline = Color(0xFF8D6E63);
+  static const Color outlineVariant = Color(0xFF5D4037);
   
   static ThemeData get darkTheme {
     return ThemeData(
@@ -88,13 +87,13 @@ class AppTheme {
           height: 1.5,
         ),
         labelLarge: GoogleFonts.beVietnamPro(
-          fontSize: 14,
+          fontSize: 16,
           fontWeight: FontWeight.w500,
           color: onSurface,
           letterSpacing: 0.1,
         ),
         labelSmall: GoogleFonts.beVietnamPro(
-          fontSize: 12,
+          fontSize: 14,
           fontWeight: FontWeight.w500,
           color: onSurfaceVariant,
         ),

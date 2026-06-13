@@ -6,11 +6,15 @@ class TvFocusCard extends StatefulWidget {
   final double focusedScale;
   final EdgeInsetsGeometry margin;
   final BorderRadius borderRadius;
+  final ValueChanged<bool>? onFocusChange;
+  final FocusNode? focusNode;
 
   const TvFocusCard({
     super.key,
     required this.child,
     this.onTap,
+    this.onFocusChange,
+    this.focusNode,
     this.focusedScale = 1.05,
     this.margin = EdgeInsets.zero,
     this.borderRadius = const BorderRadius.all(Radius.circular(12)),
@@ -27,15 +31,17 @@ class _TvFocusCardState extends State<TvFocusCard> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final active = _isFocused || _isHovered;
+    final active = _isFocused || _isHovered || (widget.focusNode?.hasFocus ?? false);
 
     return Padding(
       padding: widget.margin,
       child: FocusableActionDetector(
+        focusNode: widget.focusNode,
         onFocusChange: (focused) {
           setState(() {
             _isFocused = focused;
           });
+          widget.onFocusChange?.call(focused);
           if (focused) {
             Scrollable.ensureVisible(
               context,
@@ -62,33 +68,30 @@ class _TvFocusCardState extends State<TvFocusCard> {
           cursor: widget.onTap != null ? SystemMouseCursors.click : SystemMouseCursors.basic,
           child: GestureDetector(
             onTap: widget.onTap,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeOutCubic,
-              transform: Matrix4.identity()..scale(active ? widget.focusedScale : 1.0),
-              transformAlignment: Alignment.center,
-              decoration: BoxDecoration(
-                borderRadius: widget.borderRadius,
-                border: Border.all(
-                  color: active ? theme.colorScheme.primary : Colors.transparent,
-                  width: 4,
-                  strokeAlign: BorderSide.strokeAlignOutside,
-                ),
-                boxShadow: active
-                    ? [
-                        BoxShadow(
-                          color: theme.colorScheme.primary.withValues(alpha: 0.4),
-                          blurRadius: 25,
-                          spreadRadius: -5,
-                          offset: const Offset(0, 10),
-                        ),
-                      ]
-                    : [],
-              ),
-              child: ClipRRect(
-                borderRadius: widget.borderRadius,
-                child: widget.child,
-              ),
+            child: Builder(
+              builder: (context) {
+                final outerRadius = widget.borderRadius is BorderRadius
+                    ? BorderRadius.only(
+                        topLeft: (widget.borderRadius as BorderRadius).topLeft + const Radius.circular(3),
+                        topRight: (widget.borderRadius as BorderRadius).topRight + const Radius.circular(3),
+                        bottomLeft: (widget.borderRadius as BorderRadius).bottomLeft + const Radius.circular(3),
+                        bottomRight: (widget.borderRadius as BorderRadius).bottomRight + const Radius.circular(3),
+                      )
+                    : widget.borderRadius;
+
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeOutCubic,
+                  transform: Matrix4.identity()..scale(active ? widget.focusedScale : 1.0),
+                  transformAlignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    borderRadius: outerRadius,
+                    color: active ? Colors.white : Colors.transparent,
+                  ),
+                  padding: const EdgeInsets.all(3),
+                  child: widget.child,
+                );
+              }
             ),
           ),
         ),

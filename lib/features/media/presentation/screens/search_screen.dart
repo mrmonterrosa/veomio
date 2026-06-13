@@ -15,6 +15,8 @@ class SearchScreen extends StatefulWidget {
 
 class _SearchScreenState extends State<SearchScreen> {
   final _searchController = TextEditingController();
+  final FocusNode _firstResultFocusNode = FocusNode();
+  bool _shouldFocusFirstResult = false;
 
   final List<List<String>> _keyboardRows = [
     ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'],
@@ -25,6 +27,7 @@ class _SearchScreenState extends State<SearchScreen> {
   @override
   void dispose() {
     _searchController.dispose();
+    _firstResultFocusNode.dispose();
     super.dispose();
   }
 
@@ -46,6 +49,7 @@ class _SearchScreenState extends State<SearchScreen> {
       _searchController.text += ' ';
       _onSearchChanged(_searchController.text);
     } else if (key == 'SEARCH') {
+      _shouldFocusFirstResult = true;
       _onSearchChanged(_searchController.text);
     } else {
       _searchController.text += key;
@@ -148,7 +152,17 @@ class _SearchScreenState extends State<SearchScreen> {
                 ),
                 const SizedBox(height: 24),
                 Expanded(
-                  child: BlocBuilder<SearchCubit, SearchState>(
+                  child: BlocConsumer<SearchCubit, SearchState>(
+                    listener: (context, state) {
+                      if (state is SearchLoaded && _shouldFocusFirstResult) {
+                        _shouldFocusFirstResult = false;
+                        if (state.results.isNotEmpty) {
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            _firstResultFocusNode.requestFocus();
+                          });
+                        }
+                      }
+                    },
                     builder: (context, state) {
                       if (state is SearchLoading) {
                         return const Center(
@@ -192,7 +206,7 @@ class _SearchScreenState extends State<SearchScreen> {
                           itemCount: results.length,
                           itemBuilder: (context, index) {
                             final item = results[index];
-                            return _buildResultCard(context, item);
+                            return _buildResultCard(context, item, index == 0 ? _firstResultFocusNode : null);
                           },
                         );
                       }
@@ -280,8 +294,9 @@ class _SearchScreenState extends State<SearchScreen> {
     );
   }
 
-  Widget _buildResultCard(BuildContext context, MediaItem media) {
+  Widget _buildResultCard(BuildContext context, MediaItem media, FocusNode? focusNode) {
     return TvFocusCard(
+      focusNode: focusNode,
       onTap: () {
         Navigator.push(
           context,
@@ -380,13 +395,21 @@ class _TvKeyboardKeyState extends State<_TvKeyboardKey> {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
           height: 48,
+          transform: Matrix4.identity()..scale(_isFocused ? 1.1 : 1.0),
+          transformAlignment: Alignment.center,
           decoration: BoxDecoration(
-            color: _isFocused ? AppTheme.primary : baseColor,
+            color: _isFocused ? Colors.white : baseColor,
             borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: _isFocused ? Colors.white : Colors.transparent,
+              width: 2,
+            ),
             boxShadow: _isFocused ? [
               BoxShadow(
-                color: AppTheme.primary.withValues(alpha: 0.4),
-                blurRadius: 12,
+                color: Colors.black.withValues(alpha: 0.5),
+                blurRadius: 15,
+                spreadRadius: 2,
+                offset: const Offset(0, 8),
               )
             ] : [],
           ),

@@ -13,7 +13,7 @@ class ApiClient {
   // Unified request helper
   Future<dynamic> get(String url, {Map<String, String>? headers}) async {
     try {
-      final response = await _client.get(Uri.parse(url), headers: headers).timeout(const Duration(seconds: 5));
+      final response = await _client.get(Uri.parse(url), headers: headers).timeout(const Duration(seconds: 15));
       if (response.statusCode == 200) {
         return json.decode(utf8.decode(response.bodyBytes));
       } else {
@@ -33,7 +33,7 @@ class ApiClient {
           ...?headers,
         },
         body: json.encode(body),
-      ).timeout(const Duration(seconds: 5));
+      ).timeout(const Duration(seconds: 15));
       if (response.statusCode == 200 || response.statusCode == 201) {
         return json.decode(utf8.decode(response.bodyBytes));
       } else {
@@ -64,26 +64,42 @@ class ApiClient {
   Future<List<dynamic>> getCategories() async {
     final url = '$_laravelBaseUrl/api/v1/movies/category';
     try {
+      print('DEBUG API: Fetching categories from $url');
       final result = await get(url);
+      print('DEBUG API: getCategories result: $result');
       if (result['status'] == 'success') {
         return result['data'] as List<dynamic>;
       }
-      return [];
+      return [
+        {'id': 28, 'name': 'Acción'},
+        {'id': 35, 'name': 'Comedia'},
+        {'id': 18, 'name': 'Drama'},
+        {'id': 27, 'name': 'Terror'},
+        {'id': 878, 'name': 'Ciencia Ficción'},
+        {'id': 10751, 'name': 'Familia'},
+        {'id': 16, 'name': 'Animación'},
+        {'id': 12, 'name': 'Aventura'},
+        {'id': 14, 'name': 'Fantasía'},
+        {'id': 10749, 'name': 'Romance'},
+        {'id': 53, 'name': 'Suspense'},
+        {'id': 99, 'name': 'Documental'},
+      ];
     } catch (e) {
+      print('DEBUG API: getCategories error: $e');
       // Fallback categories list if Laravel API is down or not set up yet
       return [
         {'id': 28, 'name': 'Acción'},
-        {'id': 12, 'name': 'Aventura'},
-        {'id': 16, 'name': 'Animación'},
         {'id': 35, 'name': 'Comedia'},
-        {'id': 80, 'name': 'Crimen'},
-        {'id': 99, 'name': 'Documental'},
         {'id': 18, 'name': 'Drama'},
-        {'id': 10751, 'name': 'Familia'},
-        {'id': 14, 'name': 'Fantasía'},
         {'id': 27, 'name': 'Terror'},
-        {'id': 878, 'name': 'Ciencia ficción'},
+        {'id': 878, 'name': 'Ciencia Ficción'},
+        {'id': 10751, 'name': 'Familia'},
+        {'id': 16, 'name': 'Animación'},
+        {'id': 12, 'name': 'Aventura'},
+        {'id': 14, 'name': 'Fantasía'},
+        {'id': 10749, 'name': 'Romance'},
         {'id': 53, 'name': 'Suspense'},
+        {'id': 99, 'name': 'Documental'},
       ];
     }
   }
@@ -106,12 +122,15 @@ class ApiClient {
   Future<List<dynamic>> getNowPlaying({int page = 1}) async {
     final url = '$_laravelBaseUrl/api/v1/movies/now-playing?page=$page';
     try {
+      print('DEBUG API: Fetching now playing from $url');
       final result = await get(url);
+      print('DEBUG API: getNowPlaying result: $result');
       if (result['status'] == 'success') {
         return result['data'] as List<dynamic>;
       }
       return [];
     } catch (e) {
+      print('DEBUG API: getNowPlaying error: $e');
       return [];
     }
   }
@@ -175,13 +194,13 @@ class ApiClient {
 
   // Fetch Addon Catalog
   Future<Map<String, dynamic>> fetchAddonCatalog(String addonUrl, String type, String catalogId, {String? extraParams}) async {
-    // Addon URL format: e.g. https://torrentio.strem.fun/manifest.json
-    // Endpoints for catalogs: {addonBase}/catalog/{type}/{catalogId}.json
+    // Endpoints for catalogs: {addonBase}/catalog/{type}/{catalogId}/{extra}.json
     final addonBase = addonUrl.replaceAll('/manifest.json', '');
-    var url = '$addonBase/catalog/$type/$catalogId.json';
+    var url = '$addonBase/catalog/$type/$catalogId';
     if (extraParams != null && extraParams.isNotEmpty) {
-      url += '?$extraParams';
+      url += '/$extraParams';
     }
+    url += '.json';
     final result = await get(url);
     return result as Map<String, dynamic>;
   }

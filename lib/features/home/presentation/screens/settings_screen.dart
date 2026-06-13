@@ -2,10 +2,14 @@ import 'package:flutter/material.dart';
 import '../../../../core/storage/local_storage.dart';
 import '../../../../core/theme/app_theme.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../../../core/presentation/widgets/tv_focus_button.dart';
 
 class SettingsScreen extends StatefulWidget {
   final LocalStorage localStorage;
   final VoidCallback onSettingsSaved;
+  
+  static final FocusNode firstFocusNode = FocusNode();
+  static final FocusNode mediaKitFocusNode = FocusNode();
 
   const SettingsScreen({
     super.key,
@@ -18,35 +22,29 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  late final TextEditingController _apiUrlController;
-  final _formKey = GlobalKey<FormState>();
+  late String _playerType;
 
   @override
   void initState() {
     super.initState();
-    _apiUrlController = TextEditingController(
-      text: widget.localStorage.getApiBaseUrl(),
-    );
+    _playerType = widget.localStorage.getPlayerType();
   }
 
-  @override
-  void dispose() {
-    _apiUrlController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _saveSettings() async {
-    if (_formKey.currentState!.validate()) {
-      await widget.localStorage.setApiBaseUrl(_apiUrlController.text.trim());
-      widget.onSettingsSaved();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Configuración guardada correctamente.'),
-            backgroundColor: AppTheme.primary,
-          ),
-        );
-      }
+  Future<void> _setPlayerType(String type) async {
+    setState(() {
+      _playerType = type;
+    });
+    await widget.localStorage.setPlayerType(type);
+    widget.onSettingsSaved();
+    if (mounted) {
+      ScaffoldMessenger.of(context).clearSnackBars();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Configuración guardada automáticamente.'),
+          backgroundColor: AppTheme.primary,
+          duration: Duration(seconds: 2),
+        ),
+      );
     }
   }
 
@@ -54,8 +52,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.all(40.0),
-      child: Form(
-        key: _formKey,
+      child: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -65,12 +62,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Ajustes del servidor local Laravel API y del reproductor',
+              'Ajustes del motor de reproducción',
               style: Theme.of(context).textTheme.bodyMedium,
             ),
             const SizedBox(height: 40),
-            
-            // Server URL Input Card
+
+            // Player Selector Card
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(24.0),
@@ -78,44 +75,72 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Laravel Scraper API Base URL',
+                      'Tipo de Reproductor',
                       style: Theme.of(context).textTheme.headlineMedium,
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Dirección de tu servidor local (Laravel). Utiliza 10.0.2.2:8000 en el emulador de Android, o localhost:8000 en Windows.',
+                      'Selecciona el motor de reproducción principal para películas, series y canales.',
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
-                    const SizedBox(height: 24),
-                    TextFormField(
-                      controller: _apiUrlController,
-                      style: GoogleFonts.jetBrainsMono(color: Colors.white),
-                      decoration: const InputDecoration(
-                        labelText: 'API Base URL',
-                        border: OutlineInputBorder(),
-                        focusedBorder: OutlineInputBorder(
-                          borderSide: BorderSide(color: AppTheme.primary, width: 2),
+                    const SizedBox(height: 20),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.start,
+                      children: [
+                        TvFocusButton(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          focusNode: SettingsScreen.firstFocusNode,
+                          isPrimary: _playerType == 'native',
+                          onTap: () => _setPlayerType('native'),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.play_circle_outline,
+                                color: _playerType == 'native' ? Colors.black : Colors.white,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Nativo',
+                                style: TextStyle(
+                                  color: _playerType == 'native' ? Colors.black : Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                        enabledBorder: OutlineInputBorder(
-                          borderSide: BorderSide(color: AppTheme.outline),
+                        const SizedBox(width: 24),
+                        TvFocusButton(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          focusNode: SettingsScreen.mediaKitFocusNode,
+                          isPrimary: _playerType == 'mediakit',
+                          onTap: () => _setPlayerType('mediakit'),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.high_quality,
+                                color: _playerType == 'mediakit' ? Colors.black : Colors.white,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'MediaKit',
+                                style: TextStyle(
+                                  color: _playerType == 'mediakit' ? Colors.black : Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                        prefixIcon: Icon(Icons.dns, color: AppTheme.secondary),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Por favor ingresa una URL válida.';
-                        }
-                        if (!value.startsWith('http://') && !value.startsWith('https://')) {
-                          return 'La URL debe comenzar con http:// o https://';
-                        }
-                        return null;
-                      },
+                      ],
                     ),
                   ],
                 ),
               ),
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 24),
             
             // Info Card
             Card(
@@ -136,34 +161,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'Veomio MVP v1.0.0 • Reproductor Nativo MPV (libmpv)',
+                            'Veomio MVP v1.0.0 • Motor de Reproducción Activo: ${_playerType == 'mediakit' ? 'MediaKit' : 'Nativo'}',
                             style: Theme.of(context).textTheme.bodyMedium,
                           ),
                         ],
                       ),
                     ),
                   ],
-                ),
-              ),
-            ),
-            const Spacer(),
-            
-            // Action Button
-            Align(
-              alignment: Alignment.centerRight,
-              child: SizedBox(
-                width: 200,
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: _saveSettings,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: const [
-                      Icon(Icons.save),
-                      SizedBox(width: 8),
-                      Text('Guardar Cambios'),
-                    ],
-                  ),
                 ),
               ),
             ),

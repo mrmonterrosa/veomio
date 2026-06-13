@@ -48,6 +48,7 @@ class _StreamSelectorScreenState extends State<StreamSelectorScreen> {
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: Column(
@@ -266,7 +267,7 @@ class _StreamSelectorScreenState extends State<StreamSelectorScreen> {
                     Text(
                       source.title,
                       style: GoogleFonts.inter(
-                        fontSize: 14,
+                        fontSize: 16,
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
                       ),
@@ -277,7 +278,7 @@ class _StreamSelectorScreenState extends State<StreamSelectorScreen> {
                     Text(
                       source.description ?? source.sourceName,
                       style: GoogleFonts.inter(
-                        fontSize: 12,
+                        fontSize: 14,
                         color: AppTheme.onSurfaceVariant,
                       ),
                       maxLines: 1,

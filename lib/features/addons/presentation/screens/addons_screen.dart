@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/presentation/widgets/tv_focus_button.dart';
+import '../../../../core/presentation/widgets/tv_focus_card.dart';
 import '../bloc/addons_cubit.dart';
 import '../../data/models/addon_manifest_model.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class AddonsScreen extends StatefulWidget {
+  static final FocusNode addAddonFocusNode = FocusNode();
+  
   const AddonsScreen({super.key});
 
   @override
@@ -74,15 +78,17 @@ class _AddonsScreenState extends State<AddonsScreen> {
             ),
           ),
           actions: [
-            TextButton(
-              onPressed: () {
+            TvFocusButton(
+              onTap: () {
                 _urlController.clear();
                 Navigator.pop(context);
               },
-              child: const Text('Cancelar', style: TextStyle(color: AppTheme.onSurfaceVariant)),
+              child: const Text('Cancelar', style: TextStyle(color: Colors.white)),
             ),
-            ElevatedButton(
-              onPressed: () {
+            const SizedBox(width: 16),
+            TvFocusButton(
+              isPrimary: true,
+              onTap: () {
                 if (_formKey.currentState!.validate()) {
                   final url = _urlController.text.trim();
                   context.read<AddonsCubit>().installAddon(url);
@@ -101,7 +107,7 @@ class _AddonsScreenState extends State<AddonsScreen> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(40.0),
+      padding: const EdgeInsets.only(top: 36, bottom: 36, left: 58, right: 58),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -123,13 +129,17 @@ class _AddonsScreenState extends State<AddonsScreen> {
                   ),
                 ],
               ),
-              ElevatedButton.icon(
-                onPressed: () => _showInstallDialog(context),
-                icon: const Icon(Icons.add),
-                label: const Text('Agregar Addon'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primary,
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              TvFocusButton(
+                focusNode: AddonsScreen.addAddonFocusNode,
+                onTap: () => _showInstallDialog(context),
+                isPrimary: true,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: const [
+                    Icon(Icons.add, color: AppTheme.onPrimary),
+                    SizedBox(width: 8),
+                    Text('Agregar', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ],
                 ),
               ),
             ],
@@ -157,8 +167,9 @@ class _AddonsScreenState extends State<AddonsScreen> {
                         const SizedBox(height: 16),
                         Text(state.message, style: const TextStyle(color: Colors.redAccent)),
                         const SizedBox(height: 24),
-                        ElevatedButton(
-                          onPressed: () => context.read<AddonsCubit>().loadAddons(),
+                        TvFocusButton(
+                          isPrimary: true,
+                          onTap: () => context.read<AddonsCubit>().loadAddons(),
                           child: const Text('Reintentar'),
                         )
                       ],
@@ -208,10 +219,12 @@ class _AddonsScreenState extends State<AddonsScreen> {
   }
 
   Widget _buildAddonCard(BuildContext context, StremioAddon addon) {
-    return Card(
+    return TvFocusCard(
       margin: const EdgeInsets.only(bottom: 16),
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
+      child: Card(
+        margin: EdgeInsets.zero,
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -259,7 +272,8 @@ class _AddonsScreenState extends State<AddonsScreen> {
                         child: Text(
                           'v${addon.version}',
                           style: GoogleFonts.jetBrainsMono(
-                            fontSize: 10,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
                             color: AppTheme.onSurfaceVariant,
                           ),
                         ),
@@ -293,35 +307,49 @@ class _AddonsScreenState extends State<AddonsScreen> {
             const SizedBox(width: 24),
 
             // Uninstall Action Button
-            IconButton(
-              icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-              onPressed: () {
-                showDialog(
-                  context: context,
-                  builder: (dialogCtx) => AlertDialog(
-                    backgroundColor: AppTheme.surface,
-                    title: const Text('¿Desinstalar complemento?'),
-                    content: Text('¿Estás seguro de que deseas eliminar "${addon.name}"?'),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(dialogCtx),
-                        child: const Text('Cancelar', style: TextStyle(color: AppTheme.onSurfaceVariant)),
+            Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                TvFocusButton(
+                  onTap: () {
+                    showDialog(
+                      context: context,
+                      builder: (dialogCtx) => AlertDialog(
+                        backgroundColor: AppTheme.surface,
+                        title: const Text('¿Desinstalar complemento?'),
+                        content: Text('¿Estás seguro de que deseas eliminar "${addon.name}"?'),
+                        actions: [
+                          TvFocusButton(
+                            onTap: () => Navigator.pop(dialogCtx),
+                            child: const Text('Cancelar', style: TextStyle(color: Colors.white)),
+                          ),
+                          const SizedBox(width: 16),
+                          TvFocusButton(
+                            isPrimary: true,
+                            onTap: () {
+                              context.read<AddonsCubit>().uninstallAddon(addon.manifestUrl);
+                              Navigator.pop(dialogCtx);
+                            },
+                            child: const Text('Desinstalar', style: TextStyle(color: Colors.black)),
+                          ),
+                        ],
                       ),
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-                        onPressed: () {
-                          context.read<AddonsCubit>().uninstallAddon(addon.manifestUrl);
-                          Navigator.pop(dialogCtx);
-                        },
-                        child: const Text('Desinstalar'),
-                      ),
+                    );
+                  },
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: const [
+                      Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
+                      SizedBox(width: 8),
+                      Text('Eliminar', style: TextStyle(color: Colors.white)),
                     ],
                   ),
-                );
-              },
+                ),
+              ],
             ),
           ],
         ),
+      ),
       ),
     );
   }
@@ -337,7 +365,7 @@ class _AddonsScreenState extends State<AddonsScreen> {
       child: Text(
         label.toUpperCase(),
         style: GoogleFonts.jetBrainsMono(
-          fontSize: 10,
+          fontSize: 12,
           fontWeight: FontWeight.bold,
           color: color,
         ),

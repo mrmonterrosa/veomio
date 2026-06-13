@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:media_kit/media_kit.dart';
 import 'core/network/api_client.dart';
 import 'core/storage/local_storage.dart';
 import 'core/theme/app_theme.dart';
 import 'features/home/presentation/screens/home_shell_screen.dart';
 
+import 'package:media_kit/media_kit.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // Initialize Native MPV Media Player Core
   MediaKit.ensureInitialized();
-
+  
   // Initialize Local Storage & API client
   final localStorage = await LocalStorage.init();
   final apiClient = ApiClient(localStorage);

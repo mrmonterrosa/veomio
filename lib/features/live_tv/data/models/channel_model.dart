@@ -7,6 +7,7 @@ class LiveChannel {
   final String? nowPlaying;
   final String? startTime;
   final String? endTime;
+  final String addonUrl;
 
   LiveChannel({
     required this.id,
@@ -17,6 +18,7 @@ class LiveChannel {
     this.nowPlaying,
     this.startTime,
     this.endTime,
+    this.addonUrl = '',
   });
 
   factory LiveChannel.fromJson(Map<String, dynamic> json) {
@@ -29,6 +31,7 @@ class LiveChannel {
       nowPlaying: json['now_playing'] as String?,
       startTime: json['start_time'] as String?,
       endTime: json['end_time'] as String?,
+      addonUrl: json['addonUrl'] as String? ?? '',
     );
   }
 
@@ -42,6 +45,7 @@ class LiveChannel {
       'now_playing': nowPlaying,
       'start_time': startTime,
       'end_time': endTime,
+      'addonUrl': addonUrl,
     };
   }
 }

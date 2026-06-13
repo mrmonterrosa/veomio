@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/storage/local_storage.dart';
 import '../../../../core/presentation/widgets/tv_focus_card.dart';
@@ -10,6 +12,7 @@ import 'media_detail_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final LocalStorage localStorage;
+  static final FocusNode heroFocusNode = FocusNode();
 
   const HomeScreen({super.key, required this.localStorage});
 
@@ -19,12 +22,20 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   List<Map<String, dynamic>> _continueWatching = [];
+  final ScrollController _scrollController = ScrollController();
+  bool _isFirstLoad = true;
 
   @override
   void initState() {
     super.initState();
     context.read<CatalogCubit>().loadCatalog();
     _loadContinueWatching();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   void _loadContinueWatching() {
@@ -91,7 +102,17 @@ class _HomeScreenState extends State<HomeScreen> {
                   type: 'movie',
                 );
 
+          if (_isFirstLoad) {
+            _isFirstLoad = false;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                HomeScreen.heroFocusNode.requestFocus();
+              }
+            });
+          }
+
           return SingleChildScrollView(
+            controller: _scrollController,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -156,15 +177,21 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildHeroBanner(MediaItem media) {
     return Container(
-      height: MediaQuery.of(context).size.height * 0.65, // Responsive height (65% of screen)
+      height: MediaQuery.of(context).size.height * 0.90, // Responsive height (90% of screen)
       width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 48),
+      margin: const EdgeInsets.only(bottom: 16),
       child: Stack(
         children: [
           // Background Image
           Positioned.fill(
             child: media.backdrop.isNotEmpty
-                ? Image.network(media.backdrop, fit: BoxFit.cover)
+                ? CachedNetworkImage(
+                    imageUrl: media.backdrop,
+                    fit: BoxFit.cover,
+                    fadeInDuration: const Duration(milliseconds: 500),
+                    placeholder: (context, url) => Container(color: AppTheme.surfaceContainerHighest),
+                    errorWidget: (context, url, error) => Container(color: AppTheme.surfaceContainerHighest),
+                  )
                 : Container(color: AppTheme.surfaceContainerHighest),
           ),
           // Gradient Overlay exactly matching hero-gradient from design
@@ -218,18 +245,37 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                   ),
                   const SizedBox(height: 4), // Reduced from 16 to 4 to fix "muy arriba"
-                  Text(
-                    media.title,
-                    style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                          shadows: [
-                            const Shadow(
-                              color: Colors.black54,
-                              blurRadius: 10,
-                              offset: Offset(0, 4),
+                  media.logo.isNotEmpty
+                      ? Align(
+                          alignment: Alignment.centerLeft,
+                          child: CachedNetworkImage(
+                            imageUrl: media.logo,
+                            height: 80,
+                            alignment: Alignment.centerLeft,
+                            fit: BoxFit.contain,
+                            fadeInDuration: const Duration(milliseconds: 500),
+                            placeholder: (context, url) => const SizedBox(height: 80, width: 100),
+                            errorWidget: (context, url, error) => Text(
+                              media.title,
+                              style: GoogleFonts.sora(
+                                fontSize: 48,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
                             ),
-                          ],
+                          ),
+                        )
+                      : Text(
+                          media.title,
+                          style: GoogleFonts.sora(
+                            fontSize: 48,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                            shadows: const [
+                              Shadow(color: Colors.black54, blurRadius: 10, offset: Offset(0, 4)),
+                            ],
+                          ),
                         ),
-                  ),
                   const SizedBox(height: 16),
                   Row(
                     children: [
@@ -251,7 +297,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         children: [
                           const Icon(Icons.star, color: Colors.amber, size: 18),
                           const SizedBox(width: 4),
-                          Text('${media.rating}', style: Theme.of(context).textTheme.labelLarge?.copyWith(color: Colors.amber)),
+                          Text(media.rating > 0 ? '${media.rating}' : 'Nuevo', style: Theme.of(context).textTheme.labelLarge?.copyWith(color: Colors.amber)),
                         ],
                       ),
                       const SizedBox(width: 16),
@@ -261,26 +307,30 @@ class _HomeScreenState extends State<HomeScreen> {
                           border: Border.all(color: AppTheme.outlineVariant),
                           borderRadius: BorderRadius.circular(4),
                         ),
-                        child: const Text('4K HDR', style: TextStyle(fontSize: 12, color: AppTheme.onSurfaceVariant)),
+                        child: const Text('4K HDR', style: TextStyle(fontSize: 14, color: AppTheme.onSurfaceVariant, fontWeight: FontWeight.bold)),
                       ),
                     ],
                   ),
                   const SizedBox(height: 24),
-                  Text(
-                    media.plot,
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: AppTheme.onSurfaceVariant),
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 32),
                   Row(
                     children: [
                       TvFocusButton(
+                        focusNode: HomeScreen.heroFocusNode,
                         isPrimary: true,
                         onTap: () => _openMediaDetail(media),
+                        onFocusChange: (focused) {
+                          if (focused && _scrollController.hasClients) {
+                            _scrollController.animateTo(
+                              0.0,
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeOut,
+                            );
+                          }
+                        },
                         child: Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: const [
-                            Icon(Icons.play_arrow, size: 28),
+                            Icon(Icons.play_arrow, size: 24),
                             SizedBox(width: 8),
                             Text('Reproducir'),
                           ],
@@ -290,9 +340,19 @@ class _HomeScreenState extends State<HomeScreen> {
                       TvFocusButton(
                         isPrimary: false,
                         onTap: () => _openMediaDetail(media),
+                        onFocusChange: (focused) {
+                          if (focused && _scrollController.hasClients) {
+                            _scrollController.animateTo(
+                              0.0,
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeOut,
+                            );
+                          }
+                        },
                         child: Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: const [
-                            Icon(Icons.add, size: 28),
+                            Icon(Icons.info_outline, size: 24),
                             SizedBox(width: 8),
                             Text('Detalles'),
                           ],
@@ -313,7 +373,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return SizedBox(
       height: 210, // Increased height to allow for vertical padding and scaling
       child: ListView.builder(
-        padding: const EdgeInsets.only(left: 58.0, top: 16.0, bottom: 16.0), // Added vertical padding
+        padding: const EdgeInsets.only(left: 58.0, right: 58.0, top: 16.0, bottom: 16.0), // Added vertical and right padding
         clipBehavior: Clip.none, // Prevent clipping the scaled border
         scrollDirection: Axis.horizontal,
         itemCount: _continueWatching.length,
@@ -343,8 +403,15 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  media.backdrop.isNotEmpty
-                      ? Image.network(media.backdrop, fit: BoxFit.cover)
+                  // Background Image
+                  media.backdrop.isNotEmpty 
+                      ? CachedNetworkImage(
+                          imageUrl: media.backdrop,
+                          fit: BoxFit.cover,
+                          fadeInDuration: const Duration(milliseconds: 500),
+                          placeholder: (context, url) => Container(color: AppTheme.surfaceContainerHighest),
+                          errorWidget: (context, url, error) => Container(color: AppTheme.surfaceContainerHighest),
+                        )
                       : Container(color: AppTheme.surfaceContainerHighest),
                   
                   // Progress bar container
@@ -408,10 +475,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildMovieRail(List<MediaItem> movies) {
     return SizedBox(
-      height: 330, // Increased height
+      height: 280, // Height to accommodate 240 card + 40 focus shadow margin
       child: ListView.builder(
-        padding: const EdgeInsets.only(left: 58.0, top: 16.0, bottom: 16.0), // Added vertical padding
-        clipBehavior: Clip.none, // Prevent clipping
+        padding: const EdgeInsets.only(left: 58.0, right: 58.0, top: 20.0, bottom: 20.0),
+        clipBehavior: Clip.none, // Prevent clipping the shadow/scale
         scrollDirection: Axis.horizontal,
         itemCount: movies.length,
         itemBuilder: (context, index) {
@@ -420,13 +487,58 @@ class _HomeScreenState extends State<HomeScreen> {
             margin: const EdgeInsets.only(right: 24),
             onTap: () => _openMediaDetail(media),
             child: SizedBox(
-              width: 200,
-              child: media.thumbnail.isNotEmpty
-                  ? Image.network(media.thumbnail, fit: BoxFit.cover)
-                  : Container(
-                      color: AppTheme.surfaceContainerHighest,
-                      child: const Center(child: Icon(Icons.movie, size: 48, color: AppTheme.onSurfaceVariant)),
+              width: 160,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  media.thumbnail.isNotEmpty
+                      ? CachedNetworkImage(
+                          imageUrl: media.thumbnail,
+                          fit: BoxFit.cover,
+                          fadeInDuration: const Duration(milliseconds: 500),
+                          placeholder: (context, url) => Container(color: AppTheme.surfaceContainerHighest),
+                          errorWidget: (context, url, error) => Container(
+                            color: AppTheme.surfaceContainerHighest,
+                            child: const Center(child: Icon(Icons.movie, size: 48, color: AppTheme.onSurfaceVariant)),
+                          ),
+                        )
+                      : Container(
+                          color: AppTheme.surfaceContainerHighest,
+                          child: const Center(child: Icon(Icons.movie, size: 48, color: AppTheme.onSurfaceVariant)),
+                        ),
+                  // Gradient Overlay for Text Legibility
+                  Positioned.fill(
+                    child: Container(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [Colors.transparent, Colors.transparent, Colors.black87],
+                          stops: [0.0, 0.5, 1.0],
+                        ),
+                      ),
                     ),
+                  ),
+                  // Superimposed Title
+                  Positioned(
+                    bottom: 12,
+                    left: 12,
+                    right: 12,
+                    child: Text(
+                      media.title,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            shadows: const [
+                              Shadow(color: Colors.black, blurRadius: 4, offset: Offset(0, 1)),
+                            ],
+                          ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
             ),
           );
         },

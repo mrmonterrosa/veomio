@@ -5,6 +5,10 @@ class TvFocusButton extends StatefulWidget {
   final VoidCallback onTap;
   final bool isPrimary;
   final double focusedScale;
+  final ValueChanged<bool>? onFocusChange;
+  final FocusNode? focusNode;
+  final bool isCircle;
+  final EdgeInsetsGeometry? padding;
 
   const TvFocusButton({
     super.key,
@@ -12,6 +16,10 @@ class TvFocusButton extends StatefulWidget {
     required this.onTap,
     this.isPrimary = false,
     this.focusedScale = 1.1,
+    this.onFocusChange,
+    this.focusNode,
+    this.isCircle = false,
+    this.padding,
   });
 
   @override
@@ -21,6 +29,59 @@ class TvFocusButton extends StatefulWidget {
 class _TvFocusButtonState extends State<TvFocusButton> {
   bool _isFocused = false;
   bool _isHovered = false;
+  FocusNode? _internalFocusNode;
+
+  FocusNode get _effectiveFocusNode => widget.focusNode ?? _internalFocusNode!;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.focusNode == null) {
+      _internalFocusNode = FocusNode();
+    }
+    _effectiveFocusNode.addListener(_handleFocusChange);
+    _isFocused = _effectiveFocusNode.hasFocus;
+  }
+
+  @override
+  void didUpdateWidget(TvFocusButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.focusNode != oldWidget.focusNode) {
+      (oldWidget.focusNode ?? _internalFocusNode)?.removeListener(_handleFocusChange);
+      if (widget.focusNode != null) {
+        _internalFocusNode?.dispose();
+        _internalFocusNode = null;
+      } else {
+        _internalFocusNode ??= FocusNode();
+      }
+      _effectiveFocusNode.addListener(_handleFocusChange);
+      _isFocused = _effectiveFocusNode.hasFocus;
+    }
+  }
+
+  @override
+  void dispose() {
+    _effectiveFocusNode.removeListener(_handleFocusChange);
+    _internalFocusNode?.dispose();
+    super.dispose();
+  }
+
+  void _handleFocusChange() {
+    if (_isFocused != _effectiveFocusNode.hasFocus) {
+      setState(() {
+        _isFocused = _effectiveFocusNode.hasFocus;
+      });
+      widget.onFocusChange?.call(_isFocused);
+      if (_isFocused) {
+        Scrollable.ensureVisible(
+          context,
+          alignment: 0.5,
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeInOut,
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -39,19 +100,7 @@ class _TvFocusButtonState extends State<TvFocusButton> {
     }
 
     return FocusableActionDetector(
-      onFocusChange: (focused) {
-        setState(() {
-          _isFocused = focused;
-        });
-        if (focused) {
-          Scrollable.ensureVisible(
-            context,
-            alignment: 0.5,
-            duration: const Duration(milliseconds: 200),
-            curve: Curves.easeInOut,
-          );
-        }
-      },
+      focusNode: _effectiveFocusNode,
       onShowHoverHighlight: (hovered) {
         setState(() {
           _isHovered = hovered;
@@ -74,23 +123,22 @@ class _TvFocusButtonState extends State<TvFocusButton> {
             curve: Curves.easeOutCubic,
             transform: Matrix4.identity()..scale(active ? widget.focusedScale : 1.0),
             transformAlignment: Alignment.center,
-            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+            padding: widget.padding ?? (widget.isCircle ? EdgeInsets.zero : const EdgeInsets.symmetric(horizontal: 24, vertical: 10)),
             decoration: BoxDecoration(
               color: backgroundColor,
-              borderRadius: BorderRadius.circular(8),
+              shape: widget.isCircle ? BoxShape.circle : BoxShape.rectangle,
+              borderRadius: widget.isCircle ? null : BorderRadius.circular(8),
               border: Border.all(
-                color: active
-                    ? (widget.isPrimary ? theme.colorScheme.onPrimary : theme.colorScheme.primary)
-                    : Colors.transparent,
-                width: 2,
+                color: active ? Colors.white : Colors.transparent,
+                width: 3,
               ),
               boxShadow: active
                   ? [
                       BoxShadow(
-                        color: theme.colorScheme.primary.withValues(alpha: 0.4),
+                        color: Colors.black.withValues(alpha: 0.5),
                         blurRadius: 15,
-                        spreadRadius: -2,
-                        offset: const Offset(0, 5),
+                        spreadRadius: 2,
+                        offset: const Offset(0, 8),
                       )
                     ]
                   : [],
@@ -99,7 +147,7 @@ class _TvFocusButtonState extends State<TvFocusButton> {
               style: TextStyle(
                 color: textColor,
                 fontWeight: FontWeight.bold,
-                fontSize: 18,
+                fontSize: 16,
               ),
               child: widget.child,
             ),

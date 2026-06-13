@@ -44,35 +44,42 @@ class CatalogError extends CatalogState {
 class CatalogCubit extends Cubit<CatalogState> {
   final ApiClient _apiClient;
 
+  static const List<Map<String, dynamic>> cinemetaCatalogs = [
+    {'id': 1, 'name': 'Películas Populares', 'type': 'movie', 'catalog': 'top'},
+    {'id': 2, 'name': 'Series Populares', 'type': 'series', 'catalog': 'top'},
+    {'id': 3, 'name': 'Películas Aclamadas', 'type': 'movie', 'catalog': 'imdbRating'},
+    {'id': 4, 'name': 'Series Aclamadas', 'type': 'series', 'catalog': 'imdbRating'},
+  ];
+
   CatalogCubit(this._apiClient) : super(CatalogInitial());
 
   Future<void> loadCatalog() async {
     emit(CatalogLoading());
     try {
-      final categories = await _apiClient.getCategories();
-      final nowPlayingRaw = await _apiClient.getNowPlaying();
-      final nowPlaying = nowPlayingRaw.map((m) => MediaItem.fromLaravelJson(m)).toList();
+      // Load 'Now Playing' from Cinemeta top movies
+      final rawTopMovies = await _apiClient.fetchAddonCatalog(
+        'https://v3-cinemeta.strem.io/manifest.json',
+        'movie',
+        'top',
+      );
+      
+      final nowPlayingRaw = rawTopMovies['metas'] as List<dynamic>? ?? [];
+      final nowPlaying = nowPlayingRaw.map((m) => MediaItem.fromStremioJson(m)).toList();
 
-      int initialCategory = -1;
-      if (categories.isNotEmpty) {
-        initialCategory = categories.first['id'] as int;
-      }
+      final initialCategory = cinemetaCatalogs.first['id'] as int;
 
-      final Map<int, List<MediaItem>> categoryMovies = {};
-      if (initialCategory != -1) {
-        final categoryName = categories.first['name'] as String;
-        final moviesRaw = await _apiClient.getMoviesByCategory(categoryName);
-        categoryMovies[initialCategory] = moviesRaw.map((m) => MediaItem.fromLaravelJson(m)).toList();
-      }
+      final Map<int, List<MediaItem>> categoryMovies = {
+        initialCategory: nowPlaying, // Cache the first category since we just loaded it
+      };
 
       emit(CatalogLoaded(
-        categories: categories,
+        categories: cinemetaCatalogs,
         nowPlaying: nowPlaying,
         categoryMovies: categoryMovies,
         selectedCategoryId: initialCategory,
       ));
     } catch (e) {
-      emit(CatalogError('No se pudo conectar con el servidor API local: $e'));
+      emit(CatalogError('No se pudo conectar con Cinemeta: $e'));
     }
   }
 
@@ -85,10 +92,17 @@ class CatalogCubit extends Cubit<CatalogState> {
         return;
       }
 
-      // Load category movies
+      // Load category movies from Cinemeta
       try {
-        final moviesRaw = await _apiClient.getMoviesByCategory(categoryName);
-        final movies = moviesRaw.map((m) => MediaItem.fromLaravelJson(m)).toList();
+        final cat = cinemetaCatalogs.firstWhere((c) => c['id'] == categoryId, orElse: () => cinemetaCatalogs.first);
+        final rawMovies = await _apiClient.fetchAddonCatalog(
+          'https://v3-cinemeta.strem.io/manifest.json',
+          cat['type'] as String,
+          cat['catalog'] as String,
+        );
+
+        final moviesRawList = rawMovies['metas'] as List<dynamic>? ?? [];
+        final movies = moviesRawList.map((m) => MediaItem.fromStremioJson(m)).toList();
         
         final newCache = Map<int, List<MediaItem>>.from(currentState.categoryMovies);
         newCache[categoryId] = movies;

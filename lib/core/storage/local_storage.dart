@@ -6,6 +6,7 @@ class LocalStorage {
   static const String _keyInstalledAddons = 'installed_addons';
   static const String _keyContinueWatching = 'continue_watching';
   static const String _keyMyList = 'my_list';
+  static const String _keyPlayerType = 'player_type';
 
   final SharedPreferences _prefs;
 
@@ -25,11 +26,21 @@ class LocalStorage {
     await _prefs.setString(_keyApiBaseUrl, url);
   }
 
+  // Player Type Setting (native / vlc)
+  String getPlayerType() {
+    return _prefs.getString(_keyPlayerType) ?? 'native';
+  }
+
+  Future<void> setPlayerType(String type) async {
+    await _prefs.setString(_keyPlayerType, type);
+  }
+
   // Installed Addons (list of manifest URLs)
   List<String> getInstalledAddonUrls() {
     return _prefs.getStringList(_keyInstalledAddons) ?? [
       // Pre-configure a few standard Stremio addons for demo purposes
       'https://v3-cinemeta.strem.io/manifest.json', // Cinemeta (Official Catalogs)
+      'https://veomio-stremio.onrender.com/manifest.json', // Live TV Addon
     ];
   }
 
