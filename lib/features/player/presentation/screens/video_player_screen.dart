@@ -470,7 +470,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                 duration: const Duration(milliseconds: 300),
                 child: IgnorePointer(
                   ignoring: !_showControls || _errorMessage != null,
-                  child: _buildControlsOverlay(),
+                  child: RepaintBoundary(
+                    child: _buildControlsOverlay(),
+                  ),
                 ),
               ),
             ],

@@ -119,7 +119,7 @@ class _TvFocusButtonState extends State<TvFocusButton> {
         child: GestureDetector(
           onTap: widget.onTap,
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
+            duration: const Duration(milliseconds: 50),
             curve: Curves.easeOutCubic,
             transform: Matrix4.identity()..scale(active ? widget.focusedScale : 1.0),
             transformAlignment: Alignment.center,
