@@ -384,6 +384,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                     child: Video(
                       controller: _mkController!,
                       fit: _currentFit,
+                      controls: NoVideoControls,
                     ),
                   ),
                 ),
