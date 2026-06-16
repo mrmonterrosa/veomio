@@ -43,9 +43,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   Timer? _hideTimer;
 
   // Player state trackers
-  Duration _position = Duration.zero;
-  Duration _duration = Duration.zero;
-  bool _isPlaying = true;
   bool _isBuffering = true; // start as true until initialized
   String? _errorMessage;
 
@@ -113,15 +110,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       ),
     );
     
-    _mkPlayingSub = _mkPlayer!.stream.playing.listen((isPlaying) {
-      if (mounted) setState(() => _isPlaying = isPlaying);
-    });
-    _mkPositionSub = _mkPlayer!.stream.position.listen((position) {
-      if (mounted) setState(() => _position = position);
-    });
-    _mkDurationSub = _mkPlayer!.stream.duration.listen((duration) {
-      if (mounted) setState(() => _duration = duration);
-    });
+    _mkPlayingSub = _mkPlayer!.stream.playing.listen((isPlaying) {});
     _mkBufferingSub = _mkPlayer!.stream.buffering.listen((isBuffering) {
       if (mounted) setState(() => _isBuffering = isBuffering);
     });
@@ -218,16 +207,21 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     if (!mounted || _nativeController == null) return;
     
     final wasAlreadyInitialized = _isInitialized;
+    bool needsSetState = false;
 
-    setState(() {
-      _position = _nativeController!.value.position;
-      _duration = _nativeController!.value.duration;
-      _isPlaying = _nativeController!.value.isPlaying;
+    if (_isBuffering != _nativeController!.value.isBuffering) {
       _isBuffering = _nativeController!.value.isBuffering;
-      if (_nativeController!.value.hasError) {
-        _errorMessage = _nativeController!.value.errorDescription;
-      }
-    });
+      needsSetState = true;
+    }
+
+    if (_nativeController!.value.hasError && _errorMessage != _nativeController!.value.errorDescription) {
+      _errorMessage = _nativeController!.value.errorDescription;
+      needsSetState = true;
+    }
+
+    if (needsSetState) {
+      setState(() {});
+    }
 
     if (!wasAlreadyInitialized && _nativeController!.value.isInitialized) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -343,17 +337,27 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
           child: Stack(
             children: [
               if (!_isMediaKit && _nativeController != null && _nativeController!.value.isInitialized)
-                Center(
-                  child: AspectRatio(
-                    aspectRatio: 16 / 9,
-                    child: VideoPlayer(_nativeController!),
+                Transform.scale(
+                  scale: 1.01,
+                  child: SizedBox.expand(
+                    child: FittedBox(
+                      fit: BoxFit.cover,
+                      child: SizedBox(
+                        width: _nativeController!.value.size.width > 0 ? _nativeController!.value.size.width : 16,
+                        height: _nativeController!.value.size.height > 0 ? _nativeController!.value.size.height : 9,
+                        child: VideoPlayer(_nativeController!),
+                      ),
+                    ),
                   ),
                 ),
               if (_isMediaKit && _mkController != null)
-                Center(
-                  child: AspectRatio(
-                    aspectRatio: 16 / 9,
-                    child: Video(controller: _mkController!),
+                Transform.scale(
+                  scale: 1.01,
+                  child: SizedBox.expand(
+                    child: Video(
+                      controller: _mkController!,
+                      fit: BoxFit.cover,
+                    ),
                   ),
                 ),
 
