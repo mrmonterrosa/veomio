@@ -106,44 +106,79 @@ class _AddonsScreenState extends State<AddonsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 600;
+
     return Padding(
-      padding: const EdgeInsets.only(top: 36, bottom: 36, left: 58, right: 58),
+      padding: isMobile ? const EdgeInsets.all(16.0) : const EdgeInsets.only(top: 36, bottom: 36, left: 58, right: 58),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Header
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Complementos (Addons)',
-                    style: Theme.of(context).textTheme.displayMedium,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Instala y gestiona addons compatibles con el protocolo de Stremio',
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                ],
-              ),
-              TvFocusButton(
-                focusNode: AddonsScreen.addAddonFocusNode,
-                onTap: () => _showInstallDialog(context),
-                isPrimary: true,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: const [
-                    Icon(Icons.add, color: AppTheme.onPrimary),
-                    SizedBox(width: 8),
-                    Text('Agregar', style: TextStyle(fontWeight: FontWeight.bold)),
-                  ],
+          if (isMobile)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Complementos',
+                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
                 ),
-              ),
-            ],
-          ),
+                const SizedBox(height: 8),
+                Text(
+                  'Instala y gestiona addons',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 16),
+                TvFocusButton(
+                  focusNode: AddonsScreen.addAddonFocusNode,
+                  onTap: () => _showInstallDialog(context),
+                  isPrimary: true,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: const [
+                      Icon(Icons.add, color: AppTheme.onPrimary),
+                      SizedBox(width: 8),
+                      Text('Agregar', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                ),
+              ],
+            )
+          else
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Complementos (Addons)',
+                        style: Theme.of(context).textTheme.displayMedium,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Instala y gestiona addons compatibles con el protocolo de Stremio',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 24),
+                TvFocusButton(
+                  focusNode: AddonsScreen.addAddonFocusNode,
+                  onTap: () => _showInstallDialog(context),
+                  isPrimary: true,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: const [
+                      Icon(Icons.add, color: AppTheme.onPrimary),
+                      SizedBox(width: 8),
+                      Text('Agregar', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           const SizedBox(height: 40),
 
           // Addons List View
@@ -204,7 +239,7 @@ class _AddonsScreenState extends State<AddonsScreen> {
                     itemCount: addons.length,
                     itemBuilder: (context, index) {
                       final addon = addons[index];
-                      return _buildAddonCard(context, addon);
+                      return _buildAddonCard(context, addon, isMobile);
                     },
                   );
                 }
@@ -218,138 +253,181 @@ class _AddonsScreenState extends State<AddonsScreen> {
     );
   }
 
-  Widget _buildAddonCard(BuildContext context, StremioAddon addon) {
+  Widget _buildAddonCard(BuildContext context, StremioAddon addon, bool isMobile) {
     return TvFocusCard(
       margin: const EdgeInsets.only(bottom: 16),
       child: Card(
         margin: EdgeInsets.zero,
         child: Padding(
-          padding: const EdgeInsets.all(24.0),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Addon Logo / Icon
-            Container(
-              width: 64,
-              height: 64,
-              decoration: BoxDecoration(
-                color: AppTheme.surfaceLow,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppTheme.outline),
-              ),
-              child: addon.logo != null && addon.logo!.isNotEmpty
-                  ? ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: Image.network(addon.logo!, fit: BoxFit.cover),
-                    )
-                  : const Icon(Icons.extension, color: AppTheme.secondary, size: 32),
-            ),
-            const SizedBox(width: 24),
-
-            // Addon Details
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        addon.name,
-                        style: GoogleFonts.sora(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: AppTheme.surfaceLow,
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: AppTheme.outline),
-                        ),
-                        child: Text(
-                          'v${addon.version}',
-                          style: GoogleFonts.jetBrainsMono(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.onSurfaceVariant,
+          padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
+          child: isMobile
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        _buildAddonLogo(addon),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                addon.name,
+                                style: GoogleFonts.sora(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                              ),
+                              const SizedBox(height: 4),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.surfaceLow,
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(color: AppTheme.outline),
+                                ),
+                                child: Text(
+                                  'v${addon.version}',
+                                  style: GoogleFonts.jetBrainsMono(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.onSurfaceVariant),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    addon.description ?? 'Sin descripción disponible.',
-                    style: GoogleFonts.inter(
-                      fontSize: 14,
-                      color: AppTheme.onSurfaceVariant,
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  
-                  // Addon Resource Capabilities Tags
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      for (var resource in addon.resources)
-                        _buildCapabilityTag(resource, AppTheme.primary),
-                      for (var type in addon.types)
-                        _buildCapabilityTag(type, AppTheme.secondary),
-                    ],
-                  )
-                ],
-              ),
-            ),
-            const SizedBox(width: 24),
-
-            // Uninstall Action Button
-            Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                TvFocusButton(
-                  onTap: () {
-                    showDialog(
-                      context: context,
-                      builder: (dialogCtx) => AlertDialog(
-                        backgroundColor: AppTheme.surface,
-                        title: const Text('¿Desinstalar complemento?'),
-                        content: Text('¿Estás seguro de que deseas eliminar "${addon.name}"?'),
-                        actions: [
-                          TvFocusButton(
-                            onTap: () => Navigator.pop(dialogCtx),
-                            child: const Text('Cancelar', style: TextStyle(color: Colors.white)),
+                    const SizedBox(height: 16),
+                    Text(
+                      addon.description ?? 'Sin descripción disponible.',
+                      style: GoogleFonts.inter(fontSize: 14, color: AppTheme.onSurfaceVariant),
+                    ),
+                    const SizedBox(height: 16),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (var resource in addon.resources) _buildCapabilityTag(resource, AppTheme.primary),
+                        for (var type in addon.types) _buildCapabilityTag(type, AppTheme.secondary),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: _buildUninstallButton(context, addon),
+                    ),
+                  ],
+                )
+              : Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildAddonLogo(addon),
+                    const SizedBox(width: 24),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                addon.name,
+                                style: GoogleFonts.sora(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                              ),
+                              const SizedBox(width: 12),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.surfaceLow,
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(color: AppTheme.outline),
+                                ),
+                                child: Text(
+                                  'v${addon.version}',
+                                  style: GoogleFonts.jetBrainsMono(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.onSurfaceVariant),
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 16),
-                          TvFocusButton(
-                            isPrimary: true,
-                            onTap: () {
-                              context.read<AddonsCubit>().uninstallAddon(addon.manifestUrl);
-                              Navigator.pop(dialogCtx);
-                            },
-                            child: const Text('Desinstalar', style: TextStyle(color: Colors.black)),
+                          const SizedBox(height: 8),
+                          Text(
+                            addon.description ?? 'Sin descripción disponible.',
+                            style: GoogleFonts.inter(fontSize: 14, color: AppTheme.onSurfaceVariant),
                           ),
+                          const SizedBox(height: 16),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              for (var resource in addon.resources) _buildCapabilityTag(resource, AppTheme.primary),
+                              for (var type in addon.types) _buildCapabilityTag(type, AppTheme.secondary),
+                            ],
+                          )
                         ],
                       ),
-                    );
-                  },
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: const [
-                      Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
-                      SizedBox(width: 8),
-                      Text('Eliminar', style: TextStyle(color: Colors.white)),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(width: 24),
+                    Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _buildUninstallButton(context, addon),
+                      ],
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          ],
         ),
       ),
+    );
+  }
+
+  Widget _buildAddonLogo(StremioAddon addon) {
+    return Container(
+      width: 64,
+      height: 64,
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceLow,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.outline),
+      ),
+      child: addon.logo != null && addon.logo!.isNotEmpty
+          ? ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.network(addon.logo!, fit: BoxFit.cover),
+            )
+          : const Icon(Icons.extension, color: AppTheme.secondary, size: 32),
+    );
+  }
+
+  Widget _buildUninstallButton(BuildContext context, StremioAddon addon) {
+    return TvFocusButton(
+      onTap: () {
+        showDialog(
+          context: context,
+          builder: (dialogCtx) => AlertDialog(
+            backgroundColor: AppTheme.surface,
+            title: const Text('¿Desinstalar complemento?'),
+            content: Text('¿Estás seguro de que deseas eliminar "${addon.name}"?'),
+            actions: [
+              TvFocusButton(
+                onTap: () => Navigator.pop(dialogCtx),
+                child: const Text('Cancelar', style: TextStyle(color: Colors.white)),
+              ),
+              const SizedBox(width: 16),
+              TvFocusButton(
+                isPrimary: true,
+                onTap: () {
+                  context.read<AddonsCubit>().uninstallAddon(addon.manifestUrl);
+                  Navigator.pop(dialogCtx);
+                },
+                child: const Text('Desinstalar', style: TextStyle(color: Colors.black)),
+              ),
+            ],
+          ),
+        );
+      },
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: const [
+          Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
+          SizedBox(width: 8),
+          Text('Eliminar', style: TextStyle(color: Colors.white)),
+        ],
       ),
     );
   }

@@ -50,8 +50,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 600;
+
     return Padding(
-      padding: const EdgeInsets.all(40.0),
+      padding: EdgeInsets.all(isMobile ? 16.0 : 40.0),
       child: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -65,12 +67,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
               'Ajustes del motor de reproducción',
               style: Theme.of(context).textTheme.bodyMedium,
             ),
-            const SizedBox(height: 40),
+            SizedBox(height: isMobile ? 24 : 40),
 
             // Player Selector Card
             Card(
               child: Padding(
-                padding: const EdgeInsets.all(24.0),
+                padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -140,13 +142,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: isMobile ? 16 : 24),
             
             // Info Card
             Card(
               color: AppTheme.surfaceLow,
               child: Padding(
-                padding: const EdgeInsets.all(24.0),
+                padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
                 child: Row(
                   children: [
                     const Icon(Icons.info_outline, color: AppTheme.primary, size: 36),

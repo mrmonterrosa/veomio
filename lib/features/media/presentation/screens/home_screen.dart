@@ -160,8 +160,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildSectionTitle(String title) {
+    final isMobile = MediaQuery.of(context).size.width < 600;
     return Padding(
-      padding: const EdgeInsets.only(left: 58.0, bottom: 24.0),
+      padding: EdgeInsets.only(left: isMobile ? 16.0 : 58.0, bottom: isMobile ? 16.0 : 24.0),
       child: Row(
         children: [
           Text(
@@ -176,10 +177,11 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildHeroBanner(MediaItem media) {
+    final isMobile = MediaQuery.of(context).size.width < 600;
     return Container(
-      height: MediaQuery.of(context).size.height * 0.90, // Responsive height (90% of screen)
+      height: MediaQuery.of(context).size.height * (isMobile ? 0.60 : 0.90), // Responsive height
       width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: EdgeInsets.only(bottom: isMobile ? 8 : 16),
       child: Stack(
         children: [
           // Background Image
@@ -229,10 +231,10 @@ class _HomeScreenState extends State<HomeScreen> {
           // Content
           Positioned(
             bottom: 0,
-            left: 58,
-            width: MediaQuery.of(context).size.width * 0.6,
+            left: isMobile ? 16 : 58,
+            width: MediaQuery.of(context).size.width * (isMobile ? 0.9 : 0.6),
             child: Padding(
-              padding: const EdgeInsets.only(bottom: 48.0),
+              padding: EdgeInsets.only(bottom: isMobile ? 24.0 : 48.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
@@ -370,10 +372,11 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildContinueWatchingRail() {
+    final isMobile = MediaQuery.of(context).size.width < 600;
     return SizedBox(
-      height: 210, // Increased height to allow for vertical padding and scaling
+      height: isMobile ? 180 : 210, // Increased height to allow for vertical padding and scaling
       child: ListView.builder(
-        padding: const EdgeInsets.only(left: 58.0, right: 58.0, top: 16.0, bottom: 16.0), // Added vertical and right padding
+        padding: EdgeInsets.only(left: isMobile ? 16.0 : 58.0, right: isMobile ? 16.0 : 58.0, top: 16.0, bottom: 16.0), // Added vertical and right padding
         clipBehavior: Clip.none, // Prevent clipping the scaled border
         scrollDirection: Axis.horizontal,
         itemCount: _continueWatching.length,
@@ -396,10 +399,10 @@ class _HomeScreenState extends State<HomeScreen> {
           final percent = position / duration;
 
           return TvFocusCard(
-            margin: const EdgeInsets.only(right: 24),
+            margin: EdgeInsets.only(right: isMobile ? 12 : 24),
             onTap: () => _openMediaDetail(media),
             child: SizedBox(
-              width: 320,
+              width: isMobile ? 240 : 320,
               child: Stack(
                 fit: StackFit.expand,
                 children: [
@@ -474,20 +477,21 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildMovieRail(List<MediaItem> movies) {
+    final isMobile = MediaQuery.of(context).size.width < 600;
     return SizedBox(
-      height: 280, // Height to accommodate 240 card + 40 focus shadow margin
+      height: isMobile ? 220 : 280, // Height to accommodate 240 card + 40 focus shadow margin
       child: ListView.builder(
-        padding: const EdgeInsets.only(left: 58.0, right: 58.0, top: 20.0, bottom: 20.0),
+        padding: EdgeInsets.only(left: isMobile ? 16.0 : 58.0, right: isMobile ? 16.0 : 58.0, top: 20.0, bottom: 20.0),
         clipBehavior: Clip.none, // Prevent clipping the shadow/scale
         scrollDirection: Axis.horizontal,
         itemCount: movies.length,
         itemBuilder: (context, index) {
           final media = movies[index];
           return TvFocusCard(
-            margin: const EdgeInsets.only(right: 24),
+            margin: EdgeInsets.only(right: isMobile ? 12 : 24),
             onTap: () => _openMediaDetail(media),
             child: SizedBox(
-              width: 160,
+              width: isMobile ? 120 : 160,
               child: Stack(
                 fit: StackFit.expand,
                 children: [

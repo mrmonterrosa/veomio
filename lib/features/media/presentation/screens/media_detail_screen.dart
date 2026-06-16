@@ -100,12 +100,16 @@ class _MediaDetailScreenState extends State<MediaDetailScreen> {
       cast: _detailedCast.isNotEmpty ? _detailedCast : widget.mediaItem.cast,
     );
     final isSeries = media.type == 'series';
+    final isMobile = MediaQuery.of(context).size.width < 600;
+    final bgImageUrl = media.backdrop; // Reverted to horizontal backdrop
 
     return Scaffold(
       backgroundColor: AppTheme.background,
-      body: SingleChildScrollView(
-        controller: _scrollController,
-        child: Stack(
+      body: Stack(
+        children: [
+          SingleChildScrollView(
+            controller: _scrollController,
+            child: Stack(
           children: [
             // Backdrop
             SizedBox(
@@ -114,10 +118,11 @@ class _MediaDetailScreenState extends State<MediaDetailScreen> {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  media.backdrop.isNotEmpty
+                  bgImageUrl.isNotEmpty
                       ? CachedNetworkImage(
-                          imageUrl: media.backdrop,
+                          imageUrl: bgImageUrl,
                           fit: BoxFit.cover,
+                          alignment: Alignment.center,
                           fadeInDuration: const Duration(milliseconds: 500),
                           placeholder: (context, url) => Container(color: AppTheme.surfaceContainerHighest),
                           errorWidget: (context, url, error) => Container(color: AppTheme.surfaceContainerHighest),
@@ -156,14 +161,14 @@ class _MediaDetailScreenState extends State<MediaDetailScreen> {
 
             // Content
             Padding(
-              padding: const EdgeInsets.only(left: 88.0, top: 80.0, bottom: 48.0),
+              padding: EdgeInsets.only(left: isMobile ? 16.0 : 88.0, top: isMobile ? MediaQuery.of(context).size.height * 0.45 : 80.0, bottom: isMobile ? 100.0 : 48.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Title or Logo
                   ConstrainedBox(
                     constraints: BoxConstraints(
-                      maxWidth: MediaQuery.of(context).size.width * 0.30,
+                      maxWidth: MediaQuery.of(context).size.width * (isMobile ? 0.70 : 0.30),
                       maxHeight: 45,
                     ),
                     child: _isLoadingLogo
@@ -243,7 +248,7 @@ class _MediaDetailScreenState extends State<MediaDetailScreen> {
 
                   // Plot
                   SizedBox(
-                    width: MediaQuery.of(context).size.width * 0.55,
+                    width: MediaQuery.of(context).size.width * (isMobile ? 0.90 : 0.55),
                     child: Text(
                       media.plot.isNotEmpty ? media.plot : 'No hay descripción disponible.',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -443,6 +448,21 @@ class _MediaDetailScreenState extends State<MediaDetailScreen> {
           ],
         ),
       ),
-    );
-  }
+      if (isMobile)
+        SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: IconButton(
+              icon: const Icon(Icons.arrow_back, color: Colors.white),
+              onPressed: () => Navigator.of(context).pop(),
+              style: IconButton.styleFrom(
+                backgroundColor: Colors.black.withValues(alpha: 0.5),
+              ),
+            ),
+          ),
+        ),
+    ],
+  ),
+);
+}
 }

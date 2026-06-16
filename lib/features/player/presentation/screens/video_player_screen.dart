@@ -104,7 +104,14 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     _mkPlayer = Player(configuration: const PlayerConfiguration(
       bufferSize: 32 * 1024 * 1024,
     ));
-    _mkController = VideoController(_mkPlayer!);
+    _mkController = VideoController(
+      _mkPlayer!,
+      configuration: const VideoControllerConfiguration(
+        androidAttachSurfaceAfterVideoParameters: true,
+        vo: 'mediacodec_embed',
+        hwdec: 'mediacodec',
+      ),
+    );
     
     _mkPlayingSub = _mkPlayer!.stream.playing.listen((isPlaying) {
       if (mounted) setState(() => _isPlaying = isPlaying);
@@ -443,13 +450,19 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   }
 
   Widget _buildControlsOverlay() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 32),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.end,
-        crossAxisAlignment: CrossAxisAlignment.start,
+    final isMobile = MediaQuery.of(context).size.shortestSide < 600;
+    return SafeArea(
+      child: Stack(
         children: [
-          Column(
+          Container(
+            width: double.infinity,
+            height: double.infinity,
+            padding: EdgeInsets.symmetric(horizontal: isMobile ? 24.0 : 48.0, vertical: isMobile ? 16.0 : 32.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.end,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
@@ -496,8 +509,24 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                   ),
                 ),
               ),
-            ],
-          ),
+              ],
+            ),
+          ],
+        ),
+      ),
+          if (isMobile)
+            Positioned(
+              top: 16.0,
+              left: 24.0,
+              child: IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.white, size: 28),
+                onPressed: () => Navigator.of(context).pop(),
+                style: IconButton.styleFrom(
+                  backgroundColor: Colors.black.withValues(alpha: 0.5),
+                  padding: const EdgeInsets.all(12),
+                ),
+              ),
+            ),
         ],
       ),
     );

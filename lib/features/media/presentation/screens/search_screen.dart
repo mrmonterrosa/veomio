@@ -196,11 +196,12 @@ class _SearchScreenState extends State<SearchScreen> {
                           );
                         }
 
+                        final isMobile = MediaQuery.of(context).size.width < 600;
                         return GridView.builder(
-                          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                            maxCrossAxisExtent: 200,
-                            mainAxisSpacing: 32,
-                            crossAxisSpacing: 32,
+                          gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+                            maxCrossAxisExtent: isMobile ? 120 : 200,
+                            mainAxisSpacing: isMobile ? 16 : 32,
+                            crossAxisSpacing: isMobile ? 16 : 32,
                             childAspectRatio: 2 / 3,
                           ),
                           itemCount: results.length,

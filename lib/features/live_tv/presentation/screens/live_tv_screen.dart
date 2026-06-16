@@ -180,6 +180,8 @@ class _LiveTvScreenState extends State<LiveTvScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 600;
+    final isKeyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
     return BlocConsumer<LiveTvCubit, LiveTvState>(
       listener: (context, state) {
         if (state is LiveTvLoaded) {
@@ -240,8 +242,10 @@ class _LiveTvScreenState extends State<LiveTvScreen> {
 
           return Scaffold(
             backgroundColor: AppTheme.background,
-            body: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            body: Stack(
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                           // Foreground Metadata
                           ValueListenableBuilder<LiveChannel?>(
@@ -254,7 +258,7 @@ class _LiveTvScreenState extends State<LiveTvScreen> {
                                 },
                                 child: selected == null
                                     ? const SizedBox(key: ValueKey('empty'))
-                                    : _isCompactMode
+                                    : (_isCompactMode || (isMobile && isKeyboardOpen))
                                         ? _buildCompactHeader(selected)
                                         : _buildExpandedHeader(selected),
                               );
@@ -265,7 +269,7 @@ class _LiveTvScreenState extends State<LiveTvScreen> {
                           
                           // Search Bar
                           Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 88.0),
+                            padding: EdgeInsets.symmetric(horizontal: isMobile ? 16.0 : 88.0),
                             child: TextField(
                               textInputAction: TextInputAction.search,
                               decoration: InputDecoration(
@@ -291,7 +295,7 @@ class _LiveTvScreenState extends State<LiveTvScreen> {
 
                           Expanded(
                             child: Padding(
-                              padding: const EdgeInsets.only(left: 88.0, right: 58.0),
+                              padding: EdgeInsets.only(left: isMobile ? 16.0 : 88.0, right: isMobile ? 16.0 : 58.0),
                               child: channels.isEmpty
                                 ? Center(
                                     child: Text(
@@ -325,9 +329,9 @@ class _LiveTvScreenState extends State<LiveTvScreen> {
                                       clipBehavior: Clip.hardEdge,
                                       controller: _scrollController,
                                       padding: const EdgeInsets.only(top: 24, bottom: 64, left: 16, right: 16),
-                                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                        crossAxisCount: 3,
-                                        childAspectRatio: 4.0,
+                                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                        crossAxisCount: isMobile ? 2 : 3,
+                                        childAspectRatio: isMobile ? 1.0 : 4.0,
                                         crossAxisSpacing: 16,
                                         mainAxisSpacing: 16,
                                       ),
@@ -355,9 +359,10 @@ class _LiveTvScreenState extends State<LiveTvScreen> {
                                                       borderRadius: BorderRadius.circular(8),
                                                     ),
                                                     padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                                                    alignment: Alignment.centerLeft,
+                                                    alignment: isMobile ? Alignment.center : Alignment.centerLeft,
                                                     child: Text(
                                                       channel.name,
+                                                      textAlign: isMobile ? TextAlign.center : TextAlign.left,
                                                       style: TextStyle(
                                                         color: isSelected ? AppTheme.primary : Colors.white,
                                                         fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
@@ -377,7 +382,22 @@ class _LiveTvScreenState extends State<LiveTvScreen> {
                           ),
                         ],
                       ),
-                    );
+                      if (isMobile)
+                        SafeArea(
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: IconButton(
+                              icon: const Icon(Icons.arrow_back, color: Colors.white),
+                              onPressed: () => Navigator.of(context).pop(),
+                              style: IconButton.styleFrom(
+                                backgroundColor: Colors.black.withValues(alpha: 0.5),
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                );
           }
 
         return const SizedBox.shrink();
@@ -390,9 +410,10 @@ class _LiveTvScreenState extends State<LiveTvScreen> {
   }
 
   Widget _buildCompactHeader(LiveChannel selected) {
+    final isMobile = MediaQuery.of(context).size.width < 600;
     return Container(
       key: const ValueKey('compact'),
-      padding: const EdgeInsets.only(left: 88.0, top: 40.0, right: 58.0, bottom: 16.0),
+      padding: EdgeInsets.only(left: isMobile ? 16.0 : 88.0, top: isMobile ? 80.0 : 40.0, right: isMobile ? 16.0 : 58.0, bottom: 16.0),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -422,6 +443,7 @@ class _LiveTvScreenState extends State<LiveTvScreen> {
   }
 
   Widget _buildExpandedHeader(LiveChannel selected) {
+    final isMobile = MediaQuery.of(context).size.width < 600;
     return Container(
       key: const ValueKey('expanded'),
       width: double.infinity,
@@ -433,6 +455,7 @@ class _LiveTvScreenState extends State<LiveTvScreen> {
           _videoController != null && _videoController!.value.isInitialized
               ? FittedBox(
                   fit: BoxFit.cover,
+                  alignment: isMobile ? Alignment.topCenter : Alignment.center,
                   child: SizedBox(
                     width: _videoController!.value.size.width,
                     height: _videoController!.value.size.height,
@@ -443,6 +466,7 @@ class _LiveTvScreenState extends State<LiveTvScreen> {
                   ? CachedNetworkImage(
                       imageUrl: selected.logo!,
                       fit: BoxFit.cover,
+                      alignment: isMobile ? Alignment.topCenter : Alignment.center,
                       fadeInDuration: const Duration(milliseconds: 500),
                       placeholder: (context, url) => Container(color: AppTheme.background),
                       errorWidget: (context, url, error) => Container(color: AppTheme.background),
@@ -485,10 +509,10 @@ class _LiveTvScreenState extends State<LiveTvScreen> {
           // Metadata Content
           Positioned(
             bottom: 0,
-            left: 88, // Mathing gridview offset
-            width: MediaQuery.of(context).size.width * 0.6,
+            left: isMobile ? 16.0 : 88.0, // Mathing gridview offset
+            width: MediaQuery.of(context).size.width * (isMobile ? 0.9 : 0.6),
             child: Padding(
-              padding: const EdgeInsets.only(bottom: 24.0),
+              padding: EdgeInsets.only(bottom: isMobile ? 80.0 : 24.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
