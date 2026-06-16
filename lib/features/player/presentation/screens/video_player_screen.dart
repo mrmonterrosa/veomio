@@ -45,6 +45,33 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   // Player state trackers
   bool _isBuffering = true; // start as true until initialized
   String? _errorMessage;
+  BoxFit _currentFit = BoxFit.cover;
+
+  IconData _getFitIcon() {
+    switch (_currentFit) {
+      case BoxFit.cover:
+        return Icons.fullscreen_exit;
+      case BoxFit.contain:
+        return Icons.fit_screen;
+      case BoxFit.fill:
+        return Icons.aspect_ratio;
+      default:
+        return Icons.aspect_ratio;
+    }
+  }
+
+  void _toggleFit() {
+    _onUserInteraction();
+    setState(() {
+      if (_currentFit == BoxFit.cover) {
+        _currentFit = BoxFit.contain;
+      } else if (_currentFit == BoxFit.contain) {
+        _currentFit = BoxFit.fill;
+      } else {
+        _currentFit = BoxFit.cover;
+      }
+    });
+  }
 
   StreamSubscription? _mkPlayingSub;
   StreamSubscription? _mkPositionSub;
@@ -341,7 +368,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                   scale: 1.01,
                   child: SizedBox.expand(
                     child: FittedBox(
-                      fit: BoxFit.cover,
+                      fit: _currentFit,
                       child: SizedBox(
                         width: _nativeController!.value.size.width > 0 ? _nativeController!.value.size.width : 16,
                         height: _nativeController!.value.size.height > 0 ? _nativeController!.value.size.height : 9,
@@ -356,7 +383,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                   child: SizedBox.expand(
                     child: Video(
                       controller: _mkController!,
-                      fit: BoxFit.cover,
+                      fit: _currentFit,
                     ),
                   ),
                 ),
@@ -491,6 +518,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
           const SizedBox(height: 24),
           Row(
             children: [
+              TvFocusButton(
+                onTap: _toggleFit,
+                child: Icon(_getFitIcon(), size: 28, color: Colors.white),
+              ),
+              const SizedBox(width: 16),
               TvFocusButton(
                 focusNode: _swapPlayerFocusNode,
                 onTap: _togglePlayerTypeOnTheFly,
